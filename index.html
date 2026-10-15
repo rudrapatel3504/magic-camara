@@ -82,9 +82,9 @@
       <!-- Zoom Pills -->
       <div class="gcam-zoom-row">
         <div class="zoom-pill-container">
-          <button class="zoom-btn">.6</button>
-          <button class="zoom-btn active">1x</button>
-          <button class="zoom-btn">2x</button>
+          <button class="zoom-btn" data-zoom="0.6">.6</button>
+          <button class="zoom-btn active" data-zoom="1.0">1x</button>
+          <button class="zoom-btn" data-zoom="2.0">2x</button>
         </div>
       </div>
 
@@ -133,13 +133,22 @@
         </div>
 
         <div class="sheet-body">
-          <!-- Ratio Option -->
+          <!-- Camera Framing / Aspect Ratio Option -->
           <div class="sheet-row">
             <div class="sheet-label-group">
-              <span class="sheet-title">Aspect Ratio</span>
-              <span class="sheet-subtitle">Full sensor (4:3)</span>
+              <span class="sheet-title">Camera Framing</span>
+              <span class="sheet-subtitle">Wide View (no crop) vs Full Screen</span>
             </div>
-            <span class="sheet-pill-badge">4:3</span>
+            <div class="sheet-toggle-group">
+              <label class="sheet-radio">
+                <input type="radio" name="aspectRatioMode" value="wide" checked>
+                <span>Wide (4:3)</span>
+              </label>
+              <label class="sheet-radio">
+                <input type="radio" name="aspectRatioMode" value="fill">
+                <span>Full (16:9)</span>
+              </label>
+            </div>
           </div>
 
           <!-- Reveal Trigger Mode -->
@@ -176,40 +185,72 @@
                 <span>Direct Cut</span>
               </label>
             </div>
-          <!-- Color Wheel & Target Tuning -->
-          <div class="sheet-section-divider">
-            <span class="sheet-section-title">Color Calibration</span>
           </div>
 
-          <!-- Color Pickers Row -->
-          <div class="sheet-color-row">
-            <!-- Detect Color -->
-            <div class="color-picker-box">
-              <label class="color-box-label" for="picker-source-color">Detect Color</label>
-              <div class="color-input-wrapper">
-                <input type="color" id="picker-source-color" value="#d81b1b" class="color-circle-input">
-                <span id="source-color-hex" class="color-hex-tag">#d81b1b</span>
+          <!-- Color Wheel & Target Calibration -->
+          <div class="sheet-section-divider">
+            <span class="sheet-section-title">Color Wheel Calibration</span>
+          </div>
+
+          <!-- Vertical Color Stacking (Clean vertical card layout) -->
+          <div class="sheet-color-vertical">
+            <!-- 1. Color to Detect Card -->
+            <div class="color-vertical-card">
+              <div class="color-vertical-header">
+                <div class="color-step-badge">1</div>
+                <div class="color-vertical-titles">
+                  <span class="color-card-title">Color to Detect</span>
+                  <span class="color-card-sub">Tap wheel to pick exact real card color</span>
+                </div>
+              </div>
+              <div class="color-vertical-action">
+                <div class="color-wheel-pill">
+                  <input type="color" id="picker-source-color" value="#d81b1b" class="color-circle-input">
+                  <span id="source-color-hex" class="color-hex-tag">#d81b1b</span>
+                </div>
               </div>
             </div>
 
-            <div class="color-arrow-indicator">➔</div>
+            <!-- Arrow Indicator in middle -->
+            <div class="color-vertical-arrow-divider">
+              <div class="arrow-line"></div>
+              <div class="arrow-badge">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <polyline points="19 12 12 19 5 12"></polyline>
+                </svg>
+                <span>TRANSFORMS INTO</span>
+              </div>
+              <div class="arrow-line"></div>
+            </div>
 
-            <!-- Target Color -->
-            <div class="color-picker-box">
-              <label class="color-box-label" for="picker-target-color">Change It To</label>
-              <div class="color-input-wrapper">
-                <input type="color" id="picker-target-color" value="#0a2265" class="color-circle-input">
-                <span id="target-color-hex" class="color-hex-tag">#0a2265</span>
+            <!-- 2. Target Color Card -->
+            <div class="color-vertical-card active-target">
+              <div class="color-vertical-header">
+                <div class="color-step-badge badge-blue">2</div>
+                <div class="color-vertical-titles">
+                  <span class="color-card-title">Change It To</span>
+                  <span class="color-card-sub">Tap wheel to pick target color to appear</span>
+                </div>
+              </div>
+              <div class="color-vertical-action">
+                <div class="color-wheel-pill">
+                  <input type="color" id="picker-target-color" value="#0a2265" class="color-circle-input">
+                  <span id="target-color-hex" class="color-hex-tag">#0a2265</span>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Quick Presets -->
-          <div class="sheet-presets-row">
-            <button type="button" class="preset-chip active" data-src="#d81b1b" data-tgt="#0a2265">🔴➔🔵 Bicycle Blue</button>
-            <button type="button" class="preset-chip" data-src="#d81b1b" data-tgt="#d4af37">🔴➔🟡 Gold</button>
-            <button type="button" class="preset-chip" data-src="#0a2265" data-tgt="#d81b1b">🔵➔🔴 Blue to Red</button>
-            <button type="button" class="preset-chip" data-src="#1b8a2b" data-tgt="#0a2265">🟢➔🔵 Green to Blue</button>
+          <div class="sheet-presets-container">
+            <span class="presets-label">Quick 1-Tap Presets:</span>
+            <div class="sheet-presets-row">
+              <button type="button" class="preset-chip active" data-src="#d81b1b" data-tgt="#0a2265">🔴➔🔵 Bicycle Blue</button>
+              <button type="button" class="preset-chip" data-src="#d81b1b" data-tgt="#d4af37">🔴➔🟡 Gold</button>
+              <button type="button" class="preset-chip" data-src="#0a2265" data-tgt="#d81b1b">🔵➔🔴 Blue to Red</button>
+              <button type="button" class="preset-chip" data-src="#1b8a2b" data-tgt="#0a2265">🟢➔🔵 Green to Blue</button>
+            </div>
           </div>
 
           <!-- Timer Delay Slider (if Timer selected) -->
@@ -248,6 +289,6 @@
 
   </div>
 
-  <script src="script.js?v=6.0"></script>
+  <script src="script.js?v=7.1"></script>
 </body>
 </html>

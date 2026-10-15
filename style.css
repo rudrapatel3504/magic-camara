@@ -554,45 +554,94 @@ html, body {
   color: #8ab4f8;
 }
 
-.sheet-color-row {
+/* Vertical Color Stacking Layout */
+.sheet-color-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.color-vertical-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
   background: #141518;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
 }
 
-.color-picker-box {
+.color-vertical-card.active-target {
+  border-color: rgba(138, 180, 248, 0.3);
+  background: #181b22;
+}
+
+.color-vertical-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.color-step-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.color-step-badge.badge-blue {
+  background: #8ab4f8;
+  color: #040c1a;
+}
+
+.color-vertical-titles {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  flex: 1;
+  gap: 2px;
 }
 
-.color-box-label {
+.color-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.color-card-sub {
   font-size: 11px;
   color: #939094;
-  font-weight: 500;
 }
 
-.color-input-wrapper {
+.color-vertical-action {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.color-wheel-pill {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   padding: 4px 10px 4px 6px;
-  border-radius: 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .color-circle-input {
   -webkit-appearance: none;
   appearance: none;
   border: none;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   cursor: pointer;
   background: transparent;
@@ -607,25 +656,60 @@ html, body {
 .color-circle-input::-webkit-color-swatch {
   border: 2px solid #ffffff;
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
 .color-circle-input::-moz-color-swatch {
   border: 2px solid #ffffff;
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
 .color-hex-tag {
   font-size: 12px;
   font-family: monospace;
+  font-weight: 600;
   color: #ffffff;
 }
 
-.color-arrow-indicator {
-  font-size: 16px;
+.color-vertical-arrow-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.arrow-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.arrow-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
   color: #8ab4f8;
-  font-weight: bold;
+  background: rgba(138, 180, 248, 0.12);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.sheet-presets-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.presets-label {
+  font-size: 11px;
+  color: #939094;
+  font-weight: 500;
 }
 
 .sheet-presets-row {
@@ -638,7 +722,7 @@ html, body {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #c4c6d0;
-  padding: 5px 10px;
+  padding: 6px 12px;
   border-radius: 14px;
   font-size: 11px;
   cursor: pointer;

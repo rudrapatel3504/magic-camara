@@ -8,11 +8,12 @@
  * Zero flash animations. Zero microphone/audio permissions.
  */
 
-const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v7';
+const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v8';
 
 const DEFAULT_SETTINGS = {
   triggerMode: 'tap',          // 'tap' (Tap shutter/screen) or 'timer' (Auto countdown)
   transitionStyle: 'fade',     // 'fade' (Smooth fade away) or 'direct' (Instant cut)
+  aspectRatioMode: 'wide',     // 'wide' (Wide 4:3 Sensor - No Crop) or 'fill' (Full 16:9 Screen)
   timerDuration: 3.0,          // Seconds
   colorSensitivity: 3,         // 1 (strict) to 5 (lenient)
   sourceColor: '#d81b1b',      // Exact color to detect (Default: Bicycle Red)
@@ -31,6 +32,7 @@ let settings = loadSettings();
 let currentFacingMode = 'environment';
 let currentStream = null;
 let flipRotation = 0;
+let currentZoom = 1.0;
 
 // Fade transition progress (1.0 = transposed color, 0.0 = original color)
 let currentBlueAmount = 1.0;
@@ -54,6 +56,7 @@ const settingsSheet = document.getElementById('gcam-settings-modal');
 const zoomBtns = document.querySelectorAll('.zoom-btn');
 
 // Settings Elements
+const aspectRadios = document.querySelectorAll('input[name="aspectRatioMode"]');
 const triggerRadios = document.querySelectorAll('input[name="triggerMode"]');
 const transitionRadios = document.querySelectorAll('input[name="transitionStyle"]');
 const timerSettingsGroup = document.getElementById('timer-settings-group');
@@ -79,8 +82,7 @@ let uBlueAmountLocation = null;
 let uSensitivityLocation = null;
 let uSourceColorLocation = null;
 let uTargetColorLocation = null;
-let uVideoAspectLocation = null;
-let uScreenAspectLocation = null;
+let uUvScaleLocation = null;
 let uIsFrontCameraLocation = null;
 let isWebGLSupported = true;
 let isCameraRunning = false;
@@ -103,7 +105,7 @@ window.addEventListener('DOMContentLoaded', () => {
   startCameraStream();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=7.0').then(reg => reg.update()).catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=8.0').then(reg => reg.update()).catch(() => {});
   }
 });
 
@@ -163,20 +165,12 @@ function initRenderer() {
     attribute vec2 a_position;
     attribute vec2 a_texCoord;
     varying vec2 v_texCoord;
-    uniform float u_videoAspect;
-    uniform float u_screenAspect;
+    uniform vec2 u_uvScale;
     uniform bool u_isFrontCamera;
 
     void main() {
       gl_Position = vec4(a_position, 0.0, 1.0);
-      vec2 coord = a_texCoord;
-      if (u_screenAspect > u_videoAspect) {
-        float scale = u_videoAspect / u_screenAspect;
-        coord.y = (coord.y - 0.5) * scale + 0.5;
-      } else {
-        float scale = u_screenAspect / u_videoAspect;
-        coord.x = (coord.x - 0.5) * scale + 0.5;
-      }
+      vec2 coord = (a_texCoord - 0.5) * u_uvScale + 0.5;
 
       if (u_isFrontCamera) {
         coord.x = 1.0 - coord.x;
@@ -290,8 +284,7 @@ function initRenderer() {
   uSensitivityLocation = gl.getUniformLocation(shaderProgram, 'u_sensitivity');
   uSourceColorLocation = gl.getUniformLocation(shaderProgram, 'u_sourceColor');
   uTargetColorLocation = gl.getUniformLocation(shaderProgram, 'u_targetColor');
-  uVideoAspectLocation = gl.getUniformLocation(shaderProgram, 'u_videoAspect');
-  uScreenAspectLocation = gl.getUniformLocation(shaderProgram, 'u_screenAspect');
+  uUvScaleLocation = gl.getUniformLocation(shaderProgram, 'u_uvScale');
   uIsFrontCameraLocation = gl.getUniformLocation(shaderProgram, 'u_isFrontCamera');
 }
 
@@ -317,8 +310,9 @@ async function startCameraStream() {
     const constraints = {
       video: {
         facingMode: { ideal: currentFacingMode },
-        width: { ideal: isPortrait ? 1080 : 1920 },
-        height: { ideal: isPortrait ? 1920 : 1080 }
+        aspectRatio: { ideal: isPortrait ? (3 / 4) : (4 / 3) },
+        width: { ideal: isPortrait ? 1440 : 1920, min: 640 },
+        height: { ideal: isPortrait ? 1920 : 1440, min: 480 }
       }
     };
 
@@ -333,10 +327,33 @@ async function startCameraStream() {
     targetBlueAmount = 1.0;
     armedStartTime = performance.now();
 
+    // Check & apply camera track capabilities (e.g. wide angle/zoom)
+    applyHardwareZoom(currentZoom);
+
     requestAnimationFrame(renderLoop);
   } catch (err) {
     console.log('Camera error or awaiting user tap:', err);
   }
+}
+
+function applyHardwareZoom(zoomLevel) {
+  if (!currentStream) return;
+  const [track] = currentStream.getVideoTracks();
+  if (!track || !track.getCapabilities) return;
+  try {
+    const caps = track.getCapabilities();
+    if (caps.zoom) {
+      let targetHwZoom = 1.0;
+      if (zoomLevel < 1.0) {
+        targetHwZoom = caps.zoom.min || 1.0;
+      } else if (Math.abs(zoomLevel - 1.0) < 0.05) {
+        targetHwZoom = Math.max(caps.zoom.min, Math.min(caps.zoom.max, 1.0));
+      } else {
+        targetHwZoom = Math.min(caps.zoom.max, Math.max(caps.zoom.min, zoomLevel));
+      }
+      track.applyConstraints({ advanced: [{ zoom: targetHwZoom }] }).catch(() => {});
+    }
+  } catch (e) {}
 }
 
 async function toggleCameraFlip() {
@@ -396,12 +413,31 @@ function renderLoop() {
     gl.uniform1i(uIsFrontCameraLocation, currentFacingMode === 'user' ? 1 : 0);
 
     const isPortrait = window.innerHeight > window.innerWidth;
-    const vw = videoEl.videoWidth || (isPortrait ? 1080 : 1920);
-    const vh = videoEl.videoHeight || (isPortrait ? 1920 : 1080);
-    const videoAspect = vw / vh;
-    const screenAspect = window.innerWidth / window.innerHeight;
-    gl.uniform1f(uVideoAspectLocation, videoAspect);
-    gl.uniform1f(uScreenAspectLocation, screenAspect);
+    const vw = videoEl.videoWidth || (isPortrait ? 1440 : 1920);
+    const vh = videoEl.videoHeight || (isPortrait ? 1920 : 1440);
+    const cw = arCanvas.width;
+    const ch = arCanvas.height;
+
+    let uvScaleX = 1.0;
+    let uvScaleY = 1.0;
+
+    if (settings.aspectRatioMode === 'wide') {
+      // Wide View (4:3 Full Sensor): Entire camera sensor fits with zero crop!
+      const scale = Math.min(cw / vw, ch / vh);
+      uvScaleX = cw / (vw * scale);
+      uvScaleY = ch / (vh * scale);
+    } else {
+      // Full Screen Cover
+      const scale = Math.max(cw / vw, ch / vh);
+      uvScaleX = cw / (vw * scale);
+      uvScaleY = ch / (vh * scale);
+    }
+
+    // Apply zoom factor (.6, 1x, 2x)
+    uvScaleX /= currentZoom;
+    uvScaleY /= currentZoom;
+
+    gl.uniform2f(uUvScaleLocation, uvScaleX, uvScaleY);
 
     const aPos = gl.getAttribLocation(shaderProgram, 'a_position');
     gl.enableVertexAttribArray(aPos);
@@ -499,8 +535,16 @@ function initGCamUI() {
   // Zoom pills
   zoomBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
-      zoomBtns.forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
+      e.stopPropagation();
+      const z = parseFloat(btn.dataset.zoom) || 1.0;
+      setZoom(z);
+    });
+  });
+
+  // Aspect ratio framing controls
+  aspectRadios.forEach(r => {
+    r.addEventListener('change', (e) => {
+      settings.aspectRatioMode = e.target.value;
     });
   });
 
@@ -552,6 +596,20 @@ function initGCamUI() {
   });
 }
 
+function setZoom(z) {
+  currentZoom = z;
+  zoomBtns.forEach(b => {
+    const val = parseFloat(b.dataset.zoom) || 1.0;
+    if (Math.abs(val - z) < 0.05) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+
+  applyHardwareZoom(z);
+}
+
 function updateActiveChipState() {
   presetChips.forEach(chip => {
     if (chip.dataset.src === settings.sourceColor && chip.dataset.tgt === settings.targetColor) {
@@ -571,6 +629,8 @@ function updateTriggerModeUI(mode) {
 }
 
 function applySettingsToUI() {
+  aspectRadios.forEach(r => r.checked = (r.value === settings.aspectRatioMode));
+
   triggerRadios.forEach(r => r.checked = (r.value === settings.triggerMode));
   updateTriggerModeUI(settings.triggerMode);
 
@@ -592,8 +652,10 @@ function applySettingsToUI() {
 }
 
 function saveSettingsFromUI() {
+  const selectedAspect = document.querySelector('input[name="aspectRatioMode"]:checked')?.value || 'wide';
   const selectedMode = document.querySelector('input[name="triggerMode"]:checked')?.value || 'tap';
   const selectedTrans = document.querySelector('input[name="transitionStyle"]:checked')?.value || 'fade';
+  settings.aspectRatioMode = selectedAspect;
   settings.triggerMode = selectedMode;
   settings.transitionStyle = selectedTrans;
   settings.timerDuration = parseFloat(timerSlider.value) || 3.0;

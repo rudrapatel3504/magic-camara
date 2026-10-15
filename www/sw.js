@@ -1,5 +1,5 @@
-// Service Worker - Google Camera v6
-const CACHE_NAME = 'magic-camera-v6';
+// Service Worker - Google Camera v8
+const CACHE_NAME = 'magic-camera-v8';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
