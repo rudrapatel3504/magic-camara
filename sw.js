@@ -1,5 +1,5 @@
-// Service Worker - Google Camera v10
-const CACHE_NAME = 'magic-camera-v10';
+// Service Worker - OnePlus 12R Camera v12
+const CACHE_NAME = 'magic-camera-v12';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

@@ -13,93 +13,130 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Camera">
-  <link rel="manifest" href="manifest.json?v=11.0">
+  <link rel="manifest" href="manifest.json?v=12.0">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
-  <link rel="stylesheet" href="style.css?v=11.0">
+  <link rel="stylesheet" href="style.css?v=12.0">
 </head>
 <body class="oneplus-body">
   <div id="oneplus-app">
     
-    <!-- Hidden Raw Video Element -->
+    <!-- Hidden Raw Camera Feed -->
     <video id="camera-feed" playsinline autoplay muted></video>
 
-    <!-- Real-Time Processing Canvas -->
-    <canvas id="ar-canvas"></canvas>
-
-    <!-- OnePlus Yellow Tap to Focus Reticle -->
-    <div id="focus-reticle" class="focus-ring hidden">
-      <div class="focus-circle"></div>
-      <div class="focus-sun">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="#f5c518"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41m14.14-14.14l-1.41 1.41" stroke="#f5c518" stroke-width="2"/></svg>
-      </div>
-    </div>
-
     <!-- ONEPLUS 12R TOP BAR (OXYGENOS 14) -->
-    <header class="oneplus-top-bar">
-      <!-- Flash Toggle -->
-      <button class="oneplus-icon-btn" id="btn-flash" aria-label="Flash">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+    <header class="oneplus-top-bar" id="oneplus-top-bar">
+      <!-- Flash Auto Toggle: ⚡A -->
+      <button class="op-top-icon" id="btn-flash" aria-label="Flash Auto">
+        <svg viewBox="0 0 24 24" width="22" height="22">
+          <polygon points="11 1 3 13 10 13 9 21 17 9 10 9 11 1" fill="#ffffff" stroke="none"/>
+          <text x="14" y="21" font-size="9" font-weight="900" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">A</text>
         </svg>
       </button>
 
-      <!-- HDR Badge -->
-      <div class="oneplus-badge-btn" id="badge-hdr">HDR</div>
+      <!-- Exposure Value Toggle: [EV] -->
+      <button class="op-top-icon" id="btn-ev" aria-label="Exposure Value">
+        <div class="op-ev-box">EV</div>
+      </button>
 
-      <!-- AI Scene Badge -->
-      <div class="oneplus-badge-btn active" id="badge-ai">AI</div>
+      <!-- Live / Ultra HDR / Color Master: concentric amber dot + dotted ring (⦿) -->
+      <button class="op-top-icon" id="btn-live-color" aria-label="Color Enhancement">
+        <svg viewBox="0 0 24 24" width="22" height="22">
+          <circle cx="12" cy="12" r="8" fill="none" stroke="#f5a623" stroke-width="1.8" stroke-dasharray="2.5 2.5"/>
+          <circle cx="12" cy="12" r="3.5" fill="#f5a623"/>
+        </svg>
+      </button>
 
-      <!-- Aspect Ratio Badge -->
-      <div class="oneplus-badge-btn" id="badge-ratio">16:9</div>
-
-      <!-- Timer Indicator Badge -->
-      <div class="oneplus-badge-btn" id="badge-timer">⏱️ 10s</div>
-
-      <!-- Settings Gear Cog -->
-      <button class="oneplus-icon-btn" id="btn-settings" aria-label="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      <!-- Hamburger Menu (Settings Trigger): ☰ -->
+      <button class="op-top-icon" id="btn-menu" aria-label="Menu">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round">
+          <line x1="4" y1="6" x2="20" y2="6"/>
+          <line x1="4" y1="12" x2="20" y2="12"/>
+          <line x1="4" y1="18" x2="20" y2="18"/>
         </svg>
       </button>
     </header>
 
-    <!-- FIRST-TIME TAP STARTER -->
-    <div id="camera-tap-starter" class="camera-starter-overlay">
-      <div class="starter-lens">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-          <circle cx="12" cy="13" r="4"></circle>
-        </svg>
-      </div>
-      <p>Tap anywhere to start Camera</p>
-    </div>
+    <!-- 4:3 NATIVE VIEWFINDER (Zero Crop, Exact Optical Sensor Match) -->
+    <main id="viewfinder-container">
+      <!-- Real-Time Processing Canvas -->
+      <canvas id="ar-canvas"></canvas>
 
-    <!-- ONEPLUS 12R BOTTOM CONTROLS (OXYGENOS 14) -->
-    <footer class="oneplus-bottom-bar">
-      <!-- Zoom Pills: Dynamically .8 & 1x for Front Camera; .6, 1x, 2x, 5x for Rear -->
-      <div class="oneplus-zoom-row">
-        <div class="oneplus-zoom-container" id="zoom-container">
-          <button class="zoom-btn active" data-zoom="0.8">.8</button>
-          <button class="zoom-btn" data-zoom="1.0">1x</button>
+      <!-- Subtle OnePlus OxygenOS Yellow Face Tracking Brackets -->
+      <div id="face-tracking-bracket" class="op-face-box">
+        <div class="face-corner tl"></div>
+        <div class="face-corner tr"></div>
+        <div class="face-corner bl"></div>
+        <div class="face-corner br"></div>
+      </div>
+
+      <!-- Right Floating Action Buttons (Master, Filters, Beauty) -->
+      <div class="vf-floating-controls">
+        <!-- Master Mode Icon (Double Circle) -->
+        <button class="op-vf-btn" id="btn-master" aria-label="Master Mode">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ffffff" stroke-width="2">
+            <circle cx="12" cy="12" r="9"/>
+            <circle cx="12" cy="12" r="4"/>
+          </svg>
+        </button>
+
+        <!-- Filters Icon (Three Overlapping Venn Circles) -->
+        <button class="op-vf-btn" id="btn-filters" aria-label="Filters">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#ffffff" stroke-width="1.6">
+            <circle cx="12" cy="8" r="4.5"/>
+            <circle cx="8" cy="14.5" r="4.5"/>
+            <circle cx="16" cy="14.5" r="4.5"/>
+          </svg>
+        </button>
+
+        <!-- Retouch / Beauty Icon (Face Silhouette with Star) -->
+        <button class="op-vf-btn" id="btn-retouch" aria-label="Retouch">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 16a5 5 0 0 0 10 0V11a5 5 0 0 0-10 0v5z"/>
+            <path d="M18 4l.5 1.5L20 6l-1.5.5L18 8l-.5-1.5L16 6l1.5-.5L18 4z" fill="#ffffff" stroke="none"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- OnePlus Yellow Tap to Focus / Crosshair Reticle -->
+      <div id="focus-reticle" class="focus-ring hidden">
+        <div class="focus-crosshair"></div>
+        <div class="focus-sun">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="#f5a623">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41m14.14-14.14l-1.41 1.41" stroke="#f5a623" stroke-width="2"/>
+          </svg>
         </div>
       </div>
 
-      <!-- Mode Carousel (OnePlus OxygenOS: NIGHT | VIDEO | PHOTO | PORTRAIT | MORE) -->
-      <div class="oneplus-modes-carousel">
-        <span class="mode-item">NIGHT</span>
-        <span class="mode-item">VIDEO</span>
-        <span class="mode-item active">PHOTO<span class="oneplus-active-dot"></span></span>
-        <span class="mode-item">PORTRAIT</span>
-        <span class="mode-item">MORE</span>
+      <!-- Autoplay Starter (Transparent fallback overlay) -->
+      <div id="camera-tap-starter" class="camera-starter-overlay">
+        <div class="starter-lens">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+        </div>
+        <p>Tap anywhere to start Camera</p>
+      </div>
+    </main>
+
+    <!-- ONEPLUS 12R BOTTOM CONTROLS (OXYGENOS 14) -->
+    <footer class="oneplus-bottom-bar" id="oneplus-bottom-bar">
+      <!-- Mode Carousel: PRO | VIDEO | PHOTO | PORTRAIT | MORE -->
+      <div class="oneplus-modes-carousel" id="modes-carousel">
+        <span class="mode-item" data-mode="pro">PRO</span>
+        <span class="mode-item" data-mode="video">VIDEO</span>
+        <span class="mode-item active" data-mode="photo">PHOTO</span>
+        <span class="mode-item" data-mode="portrait">PORTRAIT</span>
+        <span class="mode-item" data-mode="more">MORE</span>
       </div>
 
       <!-- Shutter Row -->
       <div class="oneplus-shutter-row">
-        <!-- Gallery Preview -->
-        <button class="oneplus-gallery-btn" aria-label="Gallery">
+        <!-- Gallery Preview (User's authentic phone gallery thumbnail) -->
+        <button class="oneplus-gallery-btn" id="btn-gallery" aria-label="Gallery">
           <div class="oneplus-gallery-thumb"></div>
         </button>
 
@@ -110,9 +147,9 @@
           </div>
         </button>
 
-        <!-- Camera Switch Flip Button -->
+        <!-- Camera Switch Flip Button: ↻ -->
         <button class="oneplus-flip-btn" id="btn-flip" aria-label="Switch camera">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 2.21 1.79 4 4 4h2"></path>
             <polyline points="7 14 10 14 10 11"></polyline>
             <path d="M4 14c0 4.418 3.582 8 8 8s8-3.582 8-8c0-2.21-1.79-4-4-4h-2"></path>
@@ -122,99 +159,71 @@
       </div>
     </footer>
 
-    <!-- ONEPLUS CAMERA SETTINGS BOTTOM SHEET -->
-    <div id="gcam-settings-modal" class="oneplus-sheet-overlay hidden">
-      <div class="oneplus-sheet-card">
-        <div class="sheet-drag-handle"></div>
-        <div class="sheet-header">
+    <!-- DISGUISED SETTINGS SHEET (OnePlus OxygenOS 14) -->
+    <div id="settings-modal" class="oneplus-sheet-backdrop hidden">
+      <div class="oneplus-sheet">
+        <div class="oneplus-sheet-handle"></div>
+        
+        <div class="oneplus-sheet-header">
           <h2>Camera settings</h2>
-          <button id="btn-close-sheet" class="sheet-close-btn">&times;</button>
+          <button class="oneplus-sheet-close" id="btn-close-settings" aria-label="Close">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
 
-        <div class="sheet-body">
-          <!-- Photo Ratio Pills -->
-          <div class="sheet-row">
-            <div class="sheet-label-group">
-              <span class="sheet-title">Photo ratio</span>
-              <span class="sheet-subtitle">OnePlus sensor framing</span>
-            </div>
-            <div class="sheet-toggle-group">
-              <label class="sheet-radio">
-                <input type="radio" name="aspectRatioMode" value="wide">
-                <span>4:3</span>
-              </label>
-              <label class="sheet-radio">
-                <input type="radio" name="aspectRatioMode" value="fill" checked>
-                <span>16:9</span>
-              </label>
+        <div class="oneplus-sheet-content">
+          <!-- Magic Trigger Mode -->
+          <div class="oneplus-setting-card">
+            <div class="setting-title">Reveal Trigger</div>
+            <div class="setting-desc">How the card transformation activates</div>
+            <div class="oneplus-segmented">
+              <button class="seg-btn active" data-trigger="timer">Timer (10s)</button>
+              <button class="seg-btn" data-trigger="shutter">Shutter Tap</button>
+              <button class="seg-btn" data-trigger="volume">Vol Key</button>
             </div>
           </div>
 
-          <!-- Timer Pills -->
-          <div class="sheet-row">
-            <div class="sheet-label-group">
-              <span class="sheet-title">Timer countdown</span>
-              <span class="sheet-subtitle">Auto trigger when camera opens</span>
+          <!-- Timer Countdown Duration -->
+          <div class="oneplus-setting-card" id="card-timer-duration">
+            <div class="setting-row-between">
+              <div>
+                <div class="setting-title">Auto Reveal Delay</div>
+                <div class="setting-desc">Seconds after camera opens</div>
+              </div>
+              <span class="setting-badge-val" id="val-timer">10.0s</span>
             </div>
-            <div class="sheet-toggle-group">
-              <label class="sheet-radio">
-                <input type="radio" name="triggerMode" value="tap">
-                <span>Off (Tap)</span>
-              </label>
-              <label class="sheet-radio">
-                <input type="radio" name="triggerMode" value="timer" checked>
-                <span>10s</span>
-              </label>
-            </div>
+            <input type="range" id="input-timer-duration" min="2" max="30" step="0.5" value="10.0" class="oneplus-slider">
           </div>
 
           <!-- Transition Style -->
-          <div class="sheet-row">
-            <div class="sheet-label-group">
-              <span class="sheet-title">Transition Style</span>
-              <span class="sheet-subtitle">Color reveal appearance</span>
-            </div>
-            <div class="sheet-toggle-group">
-              <label class="sheet-radio">
-                <input type="radio" name="transitionStyle" value="direct" checked>
-                <span>Direct Cut</span>
-              </label>
-              <label class="sheet-radio">
-                <input type="radio" name="transitionStyle" value="fade">
-                <span>Smooth Fade</span>
-              </label>
+          <div class="oneplus-setting-card">
+            <div class="setting-title">Transformation Effect</div>
+            <div class="setting-desc">Visual style when card switches from red to blue</div>
+            <div class="oneplus-segmented">
+              <button class="seg-btn active" data-transition="direct">Direct Cut (Instant)</button>
+              <button class="seg-btn" data-transition="fade">Smooth Fade</button>
             </div>
           </div>
 
-          <!-- Timer Duration Slider -->
-          <div id="timer-settings-group" class="sheet-group">
-            <div class="sheet-slider-header">
-              <span class="sheet-title">Custom Timer Delay</span>
-              <span id="timer-val" class="sheet-badge">10.0 s</span>
+          <!-- Spectral Card Sensitivity -->
+          <div class="oneplus-setting-card">
+            <div class="setting-row-between">
+              <div>
+                <div class="setting-title">Red Spectrum Sensitivity</div>
+                <div class="setting-desc">Tolerates all lighting & shades of red</div>
+              </div>
+              <span class="setting-badge-val" id="val-sensitivity">1.0x</span>
             </div>
-            <input type="range" id="timer-slider" min="2" max="20" step="0.5" value="10.0" class="oneplus-slider">
+            <input type="range" id="input-sensitivity" min="0.5" max="2.0" step="0.1" value="1.0" class="oneplus-slider">
           </div>
 
-          <!-- Detail & Contrast tuning -->
-          <div class="sheet-group">
-            <div class="sheet-slider-header">
-              <span class="sheet-title">Card Detail Tuning</span>
-              <span id="color-sens-val" class="sheet-badge">Balanced</span>
-            </div>
-            <input type="range" id="color-sens-slider" min="1" max="5" step="1" value="3" class="oneplus-slider">
-          </div>
-
-          <!-- Grid Type -->
-          <div class="sheet-row">
-            <div class="sheet-label-group">
-              <span class="sheet-title">Grid & guides</span>
-              <span class="sheet-subtitle">Composition lines</span>
-            </div>
-            <span class="sheet-pill-badge">Grid</span>
-          </div>
-
-          <div class="sheet-actions">
-            <button id="btn-save-sheet" class="oneplus-primary-btn">Done</button>
+          <!-- Quick Test Trigger -->
+          <div class="oneplus-setting-card">
+            <button id="btn-manual-reveal" class="oneplus-action-btn">Test Reveal Now</button>
+            <button id="btn-reset-app" class="oneplus-action-btn secondary" style="margin-top: 8px;">Reset to Red</button>
           </div>
         </div>
       </div>
@@ -222,6 +231,6 @@
 
   </div>
 
-  <script src="script.js?v=11.0"></script>
+  <script src="script.js?v=12.0"></script>
 </body>
 </html>

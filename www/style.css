@@ -1,18 +1,17 @@
 /* ==========================================================================
-   ONEPLUS 12R (OXYGENOS 14) CAMERA THEME & INTERFACE
-   Authentic OnePlus Camera Experience & Disguised Magic Engine
+   ONEPLUS 12R (OXYGENOS 14) AUTHENTIC CAMERA INTERFACE
+   Pixel-Accurate Native OnePlus Front Camera Layout & Disguised Magic Engine
    ========================================================================== */
 
 :root {
   --op-black: #000000;
+  --op-gold: #f5a623;
+  --op-white: #ffffff;
+  --op-text-dim: rgba(255, 255, 255, 0.82);
+  --op-btn-dark: rgba(26, 26, 28, 0.65);
+  --op-btn-border: rgba(255, 255, 255, 0.18);
   --op-surface: #18181a;
   --op-surface-card: #222226;
-  --op-surface-elevated: #2c2c30;
-  --op-yellow: #f5c518;
-  --op-red: #eb0028;
-  --op-pill: rgba(255, 255, 255, 0.14);
-  --op-pill-active: #ffffff;
-  --op-text-dim: #929296;
 }
 
 * {
@@ -36,7 +35,7 @@ html, body {
   overflow: hidden;
   background-color: var(--op-black);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: #fff;
+  color: var(--op-white);
   touch-action: none;
 }
 
@@ -49,41 +48,175 @@ html, body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  background-color: var(--op-black);
 }
 
-/* Background Raw Camera Feed */
+/* Hidden Raw Video Element */
 #camera-feed {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 1px;
+  height: 1px;
   opacity: 0;
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
 }
 
-/* Real-Time Processing Canvas */
+/* ==========================================================================
+   1. ONEPLUS TOP BAR (Solid Black, Clean Minimalist OxygenOS 14 Icons)
+   ========================================================================== */
+.oneplus-top-bar {
+  flex-shrink: 0;
+  height: clamp(52px, 8vh, 68px);
+  padding: max(env(safe-area-inset-top), 8px) 22px 4px 22px;
+  background-color: var(--op-black);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 20;
+}
+
+.op-top-icon {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--op-white);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.op-top-icon:active {
+  transform: scale(0.92);
+}
+
+.op-ev-box {
+  border: 1.5px solid var(--op-white);
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: var(--op-white);
+  line-height: 1;
+}
+
+/* ==========================================================================
+   2. 4:3 NATIVE VIEWFINDER (Zero Crop, 1:1 Hardware Sensor Match)
+   ========================================================================== */
+#viewfinder-container {
+  width: 100vw;
+  height: calc(100vw * 4 / 3);
+  max-height: calc(100vh - 220px);
+  margin: 0 auto;
+  position: relative;
+  background-color: var(--op-black);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
 #ar-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
-  z-index: 2;
-  background: #000;
-  object-fit: cover;
+  display: block;
+  object-fit: contain;
 }
 
-/* OnePlus Yellow Tap to Focus Reticle */
+/* Subtle OnePlus Face Detection Corner Brackets */
+.op-face-box {
+  position: absolute;
+  width: 125px;
+  height: 125px;
+  left: 50%;
+  bottom: 8%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0.85;
+  z-index: 8;
+  transition: opacity 0.3s ease;
+}
+
+.op-face-box .face-corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-color: var(--op-gold);
+  border-style: solid;
+}
+
+.op-face-box .tl {
+  top: 0;
+  left: 0;
+  border-width: 2.2px 0 0 2.2px;
+  border-top-left-radius: 4px;
+}
+
+.op-face-box .tr {
+  top: 0;
+  right: 0;
+  border-width: 2.2px 2.2px 0 0;
+  border-top-right-radius: 4px;
+}
+
+.op-face-box .bl {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 2.2px 2.2px;
+  border-bottom-left-radius: 4px;
+}
+
+.op-face-box .br {
+  bottom: 0;
+  right: 0;
+  border-width: 0 2.2px 2.2px 0;
+  border-bottom-right-radius: 4px;
+}
+
+/* Floating Action Controls on Right Edge of Viewfinder */
+.vf-floating-controls {
+  position: absolute;
+  right: 14px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  z-index: 10;
+}
+
+.op-vf-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--op-btn-dark);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--op-btn-border);
+  color: var(--op-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.op-vf-btn:active {
+  transform: scale(0.9);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Tap to Focus / Crosshair Reticle */
 .focus-ring {
   position: absolute;
-  width: 64px;
-  height: 64px;
+  width: 60px;
+  height: 60px;
   pointer-events: none;
   z-index: 12;
-  transform: translate(-50%, -50%) scale(1.25);
+  transform: translate(-50%, -50%) scale(1.2);
   opacity: 0;
   transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s ease-out;
   display: flex;
@@ -100,507 +233,397 @@ html, body {
   display: none;
 }
 
-.focus-circle {
-  width: 48px;
-  height: 48px;
-  border: 1.8px solid var(--op-yellow);
+.focus-crosshair {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border: 1.5px solid var(--op-gold);
   border-radius: 50%;
-  box-shadow: 0 0 10px rgba(245, 197, 24, 0.4);
+}
+
+.focus-crosshair::before,
+.focus-crosshair::after {
+  content: '';
+  position: absolute;
+  background-color: var(--op-gold);
+}
+
+.focus-crosshair::before {
+  top: 50%;
+  left: -6px;
+  right: -6px;
+  height: 1.5px;
+  transform: translateY(-50%);
+}
+
+.focus-crosshair::after {
+  left: 50%;
+  top: -6px;
+  bottom: -6px;
+  width: 1.5px;
+  transform: translateX(-50%);
 }
 
 .focus-sun {
   position: absolute;
-  right: -2px;
+  right: -16px;
   top: 50%;
   transform: translateY(-50%);
-}
-
-/* ==========================================================================
-   ONEPLUS 12R TOP BAR (OXYGENOS 14)
-   ========================================================================== */
-.oneplus-top-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: calc(max(10px, env(safe-area-inset-top)) + 4px) 16px 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  z-index: 20;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.35) 60%, rgba(0, 0, 0, 0) 100%);
-  pointer-events: none;
-}
-
-.oneplus-top-bar > * {
-  pointer-events: auto;
-}
-
-.oneplus-icon-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(8px);
-  border: none;
-  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease;
 }
 
-.oneplus-icon-btn svg {
-  width: 19px;
-  height: 19px;
-}
-
-.oneplus-icon-btn:active {
-  transform: scale(0.92);
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.oneplus-badge-btn {
-  padding: 4px 10px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
-  font-size: 11px;
-  font-weight: 600;
-  color: #ffffff;
-  letter-spacing: 0.4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.oneplus-badge-btn.active {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.22);
-}
-
-/* TAP TO START OVERLAY */
+/* Camera Tap Starter Fallback */
 .camera-starter-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(14px);
+  background: rgba(0, 0, 0, 0.88);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
-  z-index: 25;
+  z-index: 30;
   cursor: pointer;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .camera-starter-overlay.hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
+  display: none;
 }
 
 .starter-lens {
-  width: 68px;
-  height: 68px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-}
-
-.starter-lens svg {
-  width: 34px;
-  height: 34px;
+  color: #fff;
 }
 
 .camera-starter-overlay p {
-  color: #e3e2e6;
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0.3px;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* ==========================================================================
-   ONEPLUS 12R BOTTOM CONTROLS
+   3. ONEPLUS BOTTOM CONTROLS (OXYGENOS 14)
    ========================================================================== */
 .oneplus-bottom-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding-bottom: calc(max(12px, env(safe-area-inset-bottom)) + 8px);
-  z-index: 20;
+  flex: 1;
+  background-color: var(--op-black);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: clamp(8px, 1.4vh, 14px);
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.5) 70%, rgba(0, 0, 0, 0) 100%);
-  pointer-events: none;
+  justify-content: space-evenly;
+  padding: 6px 16px max(env(safe-area-inset-bottom), 12px) 16px;
+  z-index: 20;
 }
 
-.oneplus-bottom-bar > * {
-  pointer-events: auto;
-}
-
-/* Zoom Pills (.8 | 1x for Front Camera; .6 | 1x | 2x | 5x for Rear) */
-.oneplus-zoom-row {
-  display: flex;
-  justify-content: center;
-}
-
-.oneplus-zoom-container {
-  display: flex;
-  align-items: center;
-  background: rgba(24, 24, 26, 0.85);
-  backdrop-filter: blur(16px);
-  padding: 3px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  gap: 3px;
-}
-
-.zoom-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: #a0a0a5;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.18s cubic-bezier(0.2, 0, 0, 1);
-}
-
-.zoom-btn.active {
-  background: #ffffff;
-  color: #000000;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-}
-
-/* Mode Carousel (NIGHT · VIDEO · PHOTO · PORTRAIT · MORE) */
+/* Mode Carousel */
 .oneplus-modes-carousel {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: clamp(14px, 4.5vw, 22px);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  color: var(--op-text-dim);
-  overflow: hidden;
-  width: 100%;
-}
-
-.oneplus-modes-carousel .mode-item {
-  position: relative;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  transition: color 0.15s ease;
+  gap: 22px;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
-.oneplus-modes-carousel .mode-item.active {
-  color: var(--op-yellow);
+.oneplus-modes-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.mode-item {
+  font-size: 13.5px;
   font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--op-text-dim);
+  text-transform: uppercase;
+  padding: 4px 6px;
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
 }
 
-.oneplus-active-dot {
-  display: block;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--op-yellow);
-  margin-top: 3px;
+.mode-item:active {
+  transform: scale(0.95);
+}
+
+.mode-item.active {
+  color: var(--op-gold);
 }
 
 /* Shutter Row */
 .oneplus-shutter-row {
   display: flex;
   align-items: center;
-  justify-content: space-around;
+  justify-content: space-between;
+  padding: 0 18px;
   width: 100%;
-  max-width: 360px;
-  padding: 0 16px;
 }
 
-/* Gallery Circle Preview */
+/* Gallery Thumbnail Button (User's authentic phone gallery squircle) */
 .oneplus-gallery-btn {
-  width: clamp(44px, 12vw, 50px);
-  height: clamp(44px, 12vw, 50px);
-  border-radius: 50%;
-  background: #1c1c1e;
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
-  padding: 0;
+  background: transparent;
+  border: none;
+  outline: none;
   cursor: pointer;
-  overflow: hidden;
+  width: 52px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  transition: transform 0.12s ease;
+}
+
+.oneplus-gallery-btn:active {
+  transform: scale(0.9);
 }
 
 .oneplus-gallery-thumb {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  background-color: #2a2a2e;
+  background-image: url('gallery_thumb.png');
+  background-size: cover;
+  background-position: center;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
 }
 
 /* Iconic OnePlus Camera Shutter Button */
 .oneplus-shutter-btn {
   background: transparent;
   border: none;
+  outline: none;
   cursor: pointer;
-  padding: 0;
+  width: 76px;
+  height: 76px;
   display: flex;
   align-items: center;
   justify-content: center;
-  outline: none;
+  padding: 0;
+  transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.oneplus-shutter-btn:active {
+  transform: scale(0.92);
 }
 
 .oneplus-shutter-outer {
-  width: clamp(66px, 18vw, 76px);
-  height: clamp(66px, 18vw, 76px);
+  width: 74px;
+  height: 74px;
   border-radius: 50%;
-  border: 3.5px solid #ffffff;
+  border: 3px solid var(--op-white);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 3.5px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  background: transparent;
 }
 
 .oneplus-shutter-inner {
-  width: 100%;
-  height: 100%;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  background: #ffffff;
-  transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background 0.12s ease;
+  background-color: var(--op-white);
+  transition: transform 0.1s ease, background-color 0.15s ease;
 }
 
 .oneplus-shutter-btn:active .oneplus-shutter-inner {
-  transform: scale(0.88);
-  background: #e2e2e2;
+  transform: scale(0.94);
+  background-color: #e0e0e0;
 }
 
-/* OnePlus Circular Flip Camera Button */
+/* Camera Switch Flip Button */
 .oneplus-flip-btn {
-  width: clamp(44px, 12vw, 50px);
-  height: clamp(44px, 12vw, 50px);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.14);
-  border: none;
-  color: #ffffff;
+  color: var(--op-white);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), background 0.15s ease;
 }
 
-.oneplus-flip-btn svg {
-  width: 22px;
-  height: 22px;
+.oneplus-flip-btn:active {
+  transform: scale(0.9);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 /* ==========================================================================
-   ONEPLUS OXYGENOS 14 CAMERA SETTINGS SHEET
+   4. ONEPLUS OXYGENOS 14 SETTINGS SHEET
    ========================================================================== */
-.oneplus-sheet-overlay {
-  position: absolute;
+.oneplus-sheet-backdrop {
+  position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(12px);
-  z-index: 50;
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 100;
   display: flex;
-  align-items: flex-end;
-  transition: opacity 0.25s ease, visibility 0.25s ease;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 1;
+  transition: opacity 0.25s ease;
 }
 
-.oneplus-sheet-overlay.hidden {
+.oneplus-sheet-backdrop.hidden {
   opacity: 0;
-  visibility: hidden;
   pointer-events: none;
 }
 
-.oneplus-sheet-card {
-  width: 100%;
+.oneplus-sheet {
   background: var(--op-surface);
-  border-top-left-radius: 28px;
-  border-top-right-radius: 28px;
-  padding: 14px 20px calc(24px + env(safe-area-inset-bottom)) 20px;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.85);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  padding: 12px 20px 32px 20px;
+  max-height: 82vh;
+  overflow-y: auto;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.6);
+  transform: translateY(0);
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.oneplus-sheet-backdrop.hidden .oneplus-sheet {
+  transform: translateY(100%);
+}
+
+.oneplus-sheet-handle {
+  width: 38px;
+  height: 4.5px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+  margin: 6px auto 14px auto;
+}
+
+.oneplus-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.oneplus-sheet-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--op-white);
+}
+
+.oneplus-sheet-close {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--op-white);
+  cursor: pointer;
+}
+
+.oneplus-sheet-content {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-height: 84vh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
-.sheet-drag-handle {
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.25);
-  align-self: center;
+.oneplus-setting-card {
+  background: var(--op-surface-card);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.sheet-header {
+.setting-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--op-white);
+}
+
+.setting-desc {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.setting-row-between {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.sheet-header h2 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #fff;
+.setting-badge-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--op-gold);
 }
 
-.sheet-close-btn {
+.oneplus-segmented {
+  display: flex;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.seg-btn {
+  flex: 1;
   background: transparent;
   border: none;
-  color: #939094;
-  font-size: 26px;
-  cursor: pointer;
-}
-
-.sheet-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.sheet-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.sheet-label-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sheet-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #fff;
-}
-
-.sheet-subtitle {
-  font-size: 12px;
-  color: var(--op-text-dim);
-}
-
-.sheet-pill-badge {
-  background: var(--op-pill);
-  padding: 4px 10px;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 8px 6px;
   border-radius: 8px;
   font-size: 12px;
-  color: #c4c6d0;
-}
-
-.sheet-toggle-group {
-  display: flex;
-  background: #101012;
-  padding: 3px;
-  border-radius: 12px;
-  gap: 4px;
-}
-
-.sheet-radio {
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.sheet-radio input {
-  display: none;
-}
-
-.sheet-radio span {
-  display: block;
-  padding: 6px 12px;
-  border-radius: 9px;
-  font-size: 12px;
-  color: var(--op-text-dim);
-}
-
-.sheet-radio input:checked + span {
-  background: #323238;
-  color: #ffffff;
-}
-
-.sheet-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 4px 0;
-}
-
-.sheet-group.hidden {
-  display: none;
-}
-
-.sheet-slider-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sheet-badge {
-  font-size: 12px;
-  color: var(--op-yellow);
+.seg-btn.active {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--op-white);
 }
 
 .oneplus-slider {
-  -webkit-appearance: none;
-  appearance: none;
   width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-  outline: none;
+  accent-color: var(--op-gold);
+  margin-top: 6px;
+  height: 4px;
 }
 
-.oneplus-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #ffffff;
-  cursor: pointer;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
-}
-
-.sheet-actions {
-  margin-top: 8px;
-}
-
-.oneplus-primary-btn {
+.oneplus-action-btn {
   width: 100%;
   padding: 12px;
   border-radius: 12px;
-  background: #ffffff;
-  color: #000000;
   border: none;
-  font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s ease;
+  background: var(--op-gold);
+  color: #000;
+  transition: transform 0.1s ease;
 }
 
-.oneplus-primary-btn:active {
-  background: #e0e0e0;
+.oneplus-action-btn:active {
+  transform: scale(0.98);
+}
+
+.oneplus-action-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--op-white);
 }

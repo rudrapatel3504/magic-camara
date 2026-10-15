@@ -1,74 +1,69 @@
 /**
- * GOOGLE CAMERA (GCAM) PWA - ADVANCED COLOR TRANSPOSITION
- * ============================================================================
- * Disguised 100% as the native Google Pixel Camera app.
- * Color Wheel & Color Picker: Pick EXACT color to detect and EXACT color to change to!
- * Supports REAR and FRONT (selfie) camera switching with natural mirroring.
- * Tap Shutter Button (or timer) to make color layer fade away / disappear.
- * Zero flash animations. Zero microphone/audio permissions.
+ * ONEPLUS 12R (OXYGENOS 14) AUTHENTIC CAMERA & SPECTRAL CARD REVEAL ENGINE
+ * Pixel-Matched to OnePlus 12R Native Front Camera (Zero Crop 4:3 Sensor Match)
  */
 
-const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v10';
+// ============================================================================
+// 1. GLOBAL STATE & CONFIGURATION
+// ============================================================================
+const SETTINGS_STORAGE_KEY = 'oneplus12r_camera_settings_v12';
 
 const DEFAULT_SETTINGS = {
-  triggerMode: 'timer',        // 'timer' (Auto countdown from camera open)
-  transitionStyle: 'direct',   // 'direct' (Instant cut reveal)
-  aspectRatioMode: 'fill',     // 'fill' (Full 16:9 Screen)
-  timerDuration: 10.0,         // 10.0 Seconds from opening camera
-  colorSensitivity: 3,         // 1 (strict) to 5 (lenient)
+  triggerMode: 'timer',       // 'timer' | 'shutter' | 'volume'
+  timerDuration: 10.0,        // 10.0s auto reveal from camera open
+  transitionStyle: 'direct',  // 'direct' (instant card switch) | 'fade' (smooth)
+  colorSensitivity: 1.0,      // red spectrum tolerance
+  aspectRatioMode: '4:3',     // Native 4:3 uncropped OnePlus sensor
+  volumeTrigger: true,
+  shutterTrigger: true,
+  doubleTapTrigger: false
 };
 
-const STATE = {
-  ARMED: 'armed',              // Color transposition active
-  REVEALED: 'revealed'         // Color layer faded away (real color visible)
-};
-
-let appState = STATE.ARMED;
 let settings = loadSettings();
 
-// Camera facing mode: 'user' (front selfie camera) by default
-let currentFacingMode = 'user';
-let currentStream = null;
-let flipRotation = 0;
-let currentZoom = 0.8; // Default to wide 0.8x for OnePlus 12R front camera!
+const STATE = {
+  INITIAL: 'initial',
+  ARMED: 'armed',
+  REVEALED: 'revealed'
+};
 
-// Fade transition progress (1.0 = transposed color, 0.0 = original color)
-let currentBlueAmount = 1.0;
-let targetBlueAmount = 1.0;
+let appState = STATE.INITIAL;
+let currentFacingMode = 'user'; // Front Camera by default
+let currentZoom = 1.0;          // 1.0x native optical hardware sensor
+let flipRotation = 0;
+
+let currentStream = null;
+let isCameraRunning = false;
+let armedStartTime = 0;
 let lastFrameTime = performance.now();
 
-// DOM Elements
+// Transformation interpolation values
+// 1.0 = Red Bicycle Card, 0.0 = Blue Bicycle Card
+let currentBlueAmount = 1.0;
+let targetBlueAmount = 1.0;
+
+// DOM References
 const videoEl = document.getElementById('camera-feed');
 const arCanvas = document.getElementById('ar-canvas');
+const vfContainer = document.getElementById('viewfinder-container');
 const focusReticle = document.getElementById('focus-reticle');
 const cameraStarter = document.getElementById('camera-tap-starter');
-
-// OnePlus Camera Controls
 const shutterBtn = document.getElementById('shutter-btn');
 const btnFlip = document.getElementById('btn-flip');
-const btnSettings = document.getElementById('btn-settings');
-const btnCloseSheet = document.getElementById('btn-close-sheet');
-const btnSaveSheet = document.getElementById('btn-save-sheet');
-const settingsSheet = document.getElementById('gcam-settings-modal');
-const zoomContainer = document.getElementById('zoom-container');
-const btnFlash = document.getElementById('btn-flash');
-const badgeHdr = document.getElementById('badge-hdr');
-const badgeAi = document.getElementById('badge-ai');
-const badgeRatio = document.getElementById('badge-ratio');
-const badgeTimer = document.getElementById('badge-timer');
+const btnMenu = document.getElementById('btn-menu');
+const settingsModal = document.getElementById('settings-modal');
+const btnCloseSettings = document.getElementById('btn-close-settings');
+const inputTimer = document.getElementById('input-timer-duration');
+const valTimer = document.getElementById('val-timer');
+const inputSens = document.getElementById('input-sensitivity');
+const valSens = document.getElementById('val-sensitivity');
+const btnManualReveal = document.getElementById('btn-manual-reveal');
+const btnResetApp = document.getElementById('btn-reset-app');
+const modeItems = document.querySelectorAll('.mode-item');
 
-// Settings Elements
-const aspectRadios = document.querySelectorAll('input[name="aspectRatioMode"]');
-const triggerRadios = document.querySelectorAll('input[name="triggerMode"]');
-const transitionRadios = document.querySelectorAll('input[name="transitionStyle"]');
-const timerSettingsGroup = document.getElementById('timer-settings-group');
-const timerSlider = document.getElementById('timer-slider');
-const timerVal = document.getElementById('timer-val');
-const colorSensSlider = document.getElementById('color-sens-slider');
-const colorSensVal = document.getElementById('color-sens-val');
-
-// WebGL Variables
+// WebGL Context & Locations
 let gl = null;
+let isWebGLSupported = true;
 let shaderProgram = null;
 let videoTexture = null;
 let positionBuffer = null;
@@ -77,28 +72,23 @@ let uBlueAmountLocation = null;
 let uSensitivityLocation = null;
 let uUvScaleLocation = null;
 let uIsFrontCameraLocation = null;
-let isWebGLSupported = true;
-let isCameraRunning = false;
-
-// 2D Fallback Context
 let ctx2d = null;
-let armedStartTime = 0;
 
 // ============================================================================
-// 1. INITIALIZATION & LIFECYCLE
+// INITIALIZATION
 // ============================================================================
 window.addEventListener('DOMContentLoaded', () => {
-  initGCamUI();
-  applySettingsToUI();
   initRenderer();
   handleResize();
   window.addEventListener('resize', handleResize);
-  window.addEventListener('orientationchange', handleResize);
+  setupEventListeners();
 
+  // Auto-start camera immediately
   startCameraStream();
 
+  // Register service worker for instant PWA loading & offline capability
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=10.0').then(reg => reg.update()).catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=12.0').then(reg => reg.update()).catch(() => {});
   }
 });
 
@@ -116,21 +106,13 @@ function saveSettings() {
   } catch (e) {}
 }
 
-function hexToRgb(hex) {
-  let h = hex.replace('#', '');
-  if (h.length === 3) h = h.split('').map(c => c + c).join('');
-  const num = parseInt(h, 16);
-  return [
-    ((num >> 16) & 255) / 255.0,
-    ((num >> 8) & 255) / 255.0,
-    (num & 255) / 255.0
-  ];
-}
-
 function handleResize() {
   const dpr = window.devicePixelRatio || 1;
-  arCanvas.width = window.innerWidth * dpr;
-  arCanvas.height = window.innerHeight * dpr;
+  const vf = vfContainer || document.getElementById('viewfinder-container');
+  const rect = vf ? vf.getBoundingClientRect() : { width: window.innerWidth, height: window.innerWidth * 4 / 3 };
+
+  arCanvas.width = Math.round(rect.width * dpr);
+  arCanvas.height = Math.round(rect.height * dpr);
 
   if (gl) {
     gl.viewport(0, 0, arCanvas.width, arCanvas.height);
@@ -138,7 +120,7 @@ function handleResize() {
 }
 
 // ============================================================================
-// 2. WEBGL REAL-TIME COLOR WHEEL & TRANSPOSITION SHADER
+// 2. WEBGL REAL-TIME SPECTRAL TRANSPOSITION SHADER
 // ============================================================================
 function initRenderer() {
   try {
@@ -165,6 +147,7 @@ function initRenderer() {
       gl_Position = vec4(a_position, 0.0, 1.0);
       vec2 coord = (a_texCoord - 0.5) * u_uvScale + 0.5;
 
+      // Natural OnePlus mirror effect for selfie camera
       if (u_isFrontCamera) {
         coord.x = 1.0 - coord.x;
       }
@@ -226,8 +209,8 @@ function initRenderer() {
           float redDomWeight = smoothstep(0.08, 0.22, redDom);
 
           // 4. Skin Protection Filter:
-          // Human skin (all skin types) has a high green-to-red ratio (typically g/r > 0.58)
-          // and lower saturation (sat < 0.55), while card ink has low green (g/r < 0.40) and high sat.
+          // Human skin has high green-to-red ratio (typically g/r > 0.54) and lower saturation,
+          // while Bicycle card ink has low green (g/r < 0.40) and high sat.
           float greenRatio = color.g / max(0.01, color.r);
           float skinProb = 0.0;
           if (greenRatio > 0.54 && signedHue > 8.0) {
@@ -255,20 +238,14 @@ function initRenderer() {
             vec3 blueBase = hsv2rgb(vec3(targetHue, targetSat, 1.0));
 
             // Optical Luminance Matching:
-            // Match the physical perceived luminance so all cherub lines, scrolls,
+            // Match the physical perceived luminance so cherub lines, scrolls,
             // highlights, reflections, and shadow contours look 100% authentic.
             float originalLum = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
-            float blueBaseLum = 0.299 * blueBase.r + 0.587 * blueBase.g + 0.114 * blueBase.b;
-            float lumFactor = clamp(originalLum / max(0.01, blueBaseLum), 0.15, 2.3);
+            vec3 blueCandidate = blueBase * (originalLum * 1.14);
 
-            vec3 correspondingBlue = blueBase * lumFactor;
-
-            // Micro-tonal depth: maintain rich navy shadow in engraved grooves
-            correspondingBlue = mix(correspondingBlue, correspondingBlue * vec3(0.92, 0.95, 1.06), clamp(1.0 - hsv.z, 0.0, 0.5));
-
-            // Cleanly blend into frame
-            vec3 blended = mix(color.rgb, correspondingBlue, mask);
-            color.rgb = mix(color.rgb, blended, u_blueAmount);
+            vec3 finalColor = mix(color.rgb, blueCandidate, mask * u_blueAmount);
+            gl_FragColor = vec4(finalColor, color.a);
+            return;
           }
         }
       }
@@ -284,13 +261,11 @@ function initRenderer() {
     return;
   }
 
-  gl.useProgram(shaderProgram);
-
   positionBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -1.0, -1.0,  1.0, -1.0, -1.0,  1.0,
-    -1.0,  1.0,  1.0, -1.0,  1.0,  1.0,
+    -1.0, -1.0,   1.0, -1.0,  -1.0,  1.0,
+    -1.0,  1.0,   1.0, -1.0,   1.0,  1.0,
   ]), gl.STATIC_DRAW);
 
   texCoordBuffer = gl.createBuffer();
@@ -325,20 +300,20 @@ function createShaderProgram(gl, vs, fs) {
 }
 
 // ============================================================================
-// 3. CAMERA STREAM & FRONT/REAR TOGGLE
+// 3. CAMERA STREAM (1:1 4:3 HARDWARE SENSOR MATCH)
 // ============================================================================
 async function startCameraStream() {
   if (isCameraRunning) return;
 
   try {
     const isPortrait = window.innerHeight > window.innerWidth;
-    const is169 = settings.aspectRatioMode === 'fill';
+    // Request native 4:3 hardware sensor resolution (Zero Crop on OnePlus 12R)
     const constraints = {
       video: {
         facingMode: { ideal: currentFacingMode },
-        aspectRatio: { ideal: isPortrait ? (is169 ? 9 / 16 : 3 / 4) : (is169 ? 16 / 9 : 4 / 3) },
-        width: { ideal: isPortrait ? 1080 : 1920, min: 640 },
-        height: { ideal: isPortrait ? 1920 : 1080, min: 480 }
+        width: { ideal: 1920, max: 2560 },
+        height: { ideal: 1440, max: 1920 },
+        aspectRatio: { ideal: isPortrait ? (3 / 4) : (4 / 3) }
       }
     };
 
@@ -353,33 +328,10 @@ async function startCameraStream() {
     targetBlueAmount = 1.0;
     armedStartTime = performance.now();
 
-    // Check & apply camera track capabilities (e.g. wide angle/zoom)
-    applyHardwareZoom(currentZoom);
-
     requestAnimationFrame(renderLoop);
   } catch (err) {
-    console.log('Camera error or awaiting user tap:', err);
+    console.log('Camera awaiting user interaction or permissions:', err);
   }
-}
-
-function applyHardwareZoom(zoomLevel) {
-  if (!currentStream) return;
-  const [track] = currentStream.getVideoTracks();
-  if (!track || !track.getCapabilities) return;
-  try {
-    const caps = track.getCapabilities();
-    if (caps.zoom) {
-      let targetHwZoom = 1.0;
-      if (zoomLevel < 1.0) {
-        targetHwZoom = caps.zoom.min || 1.0;
-      } else if (Math.abs(zoomLevel - 1.0) < 0.05) {
-        targetHwZoom = Math.max(caps.zoom.min, Math.min(caps.zoom.max, 1.0));
-      } else {
-        targetHwZoom = Math.min(caps.zoom.max, Math.max(caps.zoom.min, zoomLevel));
-      }
-      track.applyConstraints({ advanced: [{ zoom: targetHwZoom }] }).catch(() => {});
-    }
-  } catch (e) {}
 }
 
 async function toggleCameraFlip() {
@@ -387,8 +339,6 @@ async function toggleCameraFlip() {
   btnFlip.style.transform = `rotate(${flipRotation}deg)`;
 
   currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-  currentZoom = (currentFacingMode === 'user') ? 0.8 : 1.0;
-  renderZoomPills();
 
   if (currentStream) {
     currentStream.getTracks().forEach(track => track.stop());
@@ -400,7 +350,7 @@ async function toggleCameraFlip() {
 }
 
 // ============================================================================
-// 4. RENDERING LOOP & SMOOTH FADE ENGINE
+// 4. RENDERING LOOP & ZERO-CROP OPTICAL SCALING
 // ============================================================================
 function renderLoop() {
   requestAnimationFrame(renderLoop);
@@ -411,6 +361,7 @@ function renderLoop() {
   const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
   lastFrameTime = now;
 
+  // 10-Second Auto Reveal Trigger from camera open
   if (settings.triggerMode === 'timer' && appState === STATE.ARMED) {
     if (!armedStartTime) armedStartTime = now;
     if ((now - armedStartTime) / 1000 >= settings.timerDuration) {
@@ -418,6 +369,7 @@ function renderLoop() {
     }
   }
 
+  // Direct Cut vs Smooth Fade
   if (settings.transitionStyle === 'fade') {
     const fadeSpeed = 3.5;
     if (currentBlueAmount < targetBlueAmount) {
@@ -439,29 +391,23 @@ function renderLoop() {
     gl.uniform1i(uIsFrontCameraLocation, currentFacingMode === 'user' ? 1 : 0);
 
     const isPortrait = window.innerHeight > window.innerWidth;
-    const vw = videoEl.videoWidth || (isPortrait ? 1440 : 1920);
-    const vh = videoEl.videoHeight || (isPortrait ? 1920 : 1440);
+    const vw = videoEl.videoWidth || 1080;
+    const vh = videoEl.videoHeight || 1440;
     const cw = arCanvas.width;
     const ch = arCanvas.height;
+
+    // Both canvas and OnePlus camera sensor are 3:4!
+    const effectiveVideoRatio = (isPortrait && vw > vh) ? (vh / vw) : (vw / vh);
+    const canvasRatio = cw / ch;
 
     let uvScaleX = 1.0;
     let uvScaleY = 1.0;
 
-    if (settings.aspectRatioMode === 'wide') {
-      // Wide View (4:3 Full Sensor): Entire camera sensor fits with zero crop!
-      const scale = Math.min(cw / vw, ch / vh);
-      uvScaleX = cw / (vw * scale);
-      uvScaleY = ch / (vh * scale);
-    } else {
-      // Full Screen Cover
-      const scale = Math.max(cw / vw, ch / vh);
-      uvScaleX = cw / (vw * scale);
-      uvScaleY = ch / (vh * scale);
+    if (effectiveVideoRatio > canvasRatio + 0.005) {
+      uvScaleX = canvasRatio / effectiveVideoRatio;
+    } else if (canvasRatio > effectiveVideoRatio + 0.005) {
+      uvScaleY = effectiveVideoRatio / canvasRatio;
     }
-
-    // Apply zoom factor (.6, 1x, 2x)
-    uvScaleX /= currentZoom;
-    uvScaleY /= currentZoom;
 
     gl.uniform2f(uUvScaleLocation, uvScaleX, uvScaleY);
 
@@ -477,7 +423,7 @@ function renderLoop() {
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   } else if (ctx2d) {
-    ctx2d.drawImage(videoEl, 0, 0, window.innerWidth, window.innerHeight);
+    ctx2d.drawImage(videoEl, 0, 0, arCanvas.width, arCanvas.height);
   }
 }
 
@@ -486,236 +432,196 @@ function renderLoop() {
 // ============================================================================
 function triggerReveal() {
   if (appState === STATE.REVEALED) return;
-
   appState = STATE.REVEALED;
+  // Instantly cut card from red to blue
   targetBlueAmount = 0.0;
-
   if (settings.transitionStyle === 'direct') {
     currentBlueAmount = 0.0;
   }
 }
 
-function rearmTrick() {
+function resetToRed() {
   appState = STATE.ARMED;
-  targetBlueAmount = 1.0;
   armedStartTime = performance.now();
-
-  if (settings.transitionStyle === 'direct') {
-    currentBlueAmount = 1.0;
-  }
-}
-
-function handleShutterClick() {
-  if (appState === STATE.ARMED) {
-    triggerReveal();
-  } else {
-    rearmTrick();
-  }
+  targetBlueAmount = 1.0;
+  currentBlueAmount = 1.0;
 }
 
 // ============================================================================
-// 6. GCAM UI & COLOR WHEEL PICKER INTERACTIONS
+// 6. ONEPLUS 12R CAMERA CONTROLS & LISTENERS
 // ============================================================================
-function initGCamUI() {
+function setupEventListeners() {
+  // Autoplay fallback overlay
   cameraStarter.addEventListener('click', () => {
     startCameraStream();
   });
 
-  // Shutter Button
-  shutterBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    handleShutterClick();
-  });
+  // Tap-to-Focus Reticle on Viewfinder
+  vfContainer.addEventListener('click', (e) => {
+    if (e.target.closest('.vf-floating-controls') || e.target.closest('.camera-starter-overlay')) return;
+    const rect = vfContainer.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-  // Camera Flip Button
-  btnFlip.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleCameraFlip();
-  });
-
-  // Viewfinder focus reticle
-  arCanvas.addEventListener('click', (e) => {
-    if (!isCameraRunning) {
-      startCameraStream();
-      return;
-    }
-    focusReticle.style.left = `${e.clientX}px`;
-    focusReticle.style.top = `${e.clientY}px`;
+    focusReticle.style.left = `${x}px`;
+    focusReticle.style.top = `${y}px`;
     focusReticle.classList.remove('hidden');
+    focusReticle.classList.remove('active');
+    void focusReticle.offsetWidth; // trigger reflow
     focusReticle.classList.add('active');
+
     setTimeout(() => {
       focusReticle.classList.remove('active');
       setTimeout(() => focusReticle.classList.add('hidden'), 200);
-    }, 600);
+    }, 1800);
   });
 
-  // Settings Sheet Toggle
-  btnSettings.addEventListener('click', () => settingsSheet.classList.remove('hidden'));
-  btnCloseSheet.addEventListener('click', () => settingsSheet.classList.add('hidden'));
-  btnSaveSheet.addEventListener('click', () => {
-    saveSettingsFromUI();
-    settingsSheet.classList.add('hidden');
-  });
+  // OnePlus Shutter Button
+  shutterBtn.addEventListener('click', () => {
+    if (navigator.vibrate) navigator.vibrate(12);
 
-  // Render OnePlus Zoom Pills (.8 & 1x for front camera)
-  renderZoomPills();
-
-  // OnePlus Top Bar Badges
-  if (badgeHdr) {
-    badgeHdr.addEventListener('click', () => badgeHdr.classList.toggle('active'));
-  }
-  if (badgeAi) {
-    badgeAi.addEventListener('click', () => badgeAi.classList.toggle('active'));
-  }
-  if (badgeRatio) {
-    badgeRatio.addEventListener('click', () => settingsSheet.classList.remove('hidden'));
-  }
-  if (badgeTimer) {
-    badgeTimer.addEventListener('click', () => settingsSheet.classList.remove('hidden'));
-  }
-  if (btnFlash) {
-    let flashStates = ['auto', 'on', 'off'];
-    let flashIdx = 0;
-    btnFlash.addEventListener('click', () => {
-      flashIdx = (flashIdx + 1) % flashStates.length;
-      btnFlash.classList.toggle('active', flashStates[flashIdx] !== 'off');
-    });
-  }
-
-  // OnePlus Modes Carousel
-  const modeItems = document.querySelectorAll('.oneplus-modes-carousel .mode-item');
-  modeItems.forEach(item => {
-    item.addEventListener('click', () => {
-      modeItems.forEach(m => {
-        m.classList.remove('active');
-        const dot = m.querySelector('.oneplus-active-dot');
-        if (dot) dot.remove();
-      });
-      item.classList.add('active');
-      const dot = document.createElement('span');
-      dot.className = 'oneplus-active-dot';
-      item.appendChild(dot);
-    });
-  });
-
-  // Aspect ratio framing controls
-  aspectRadios.forEach(r => {
-    r.addEventListener('change', (e) => {
-      settings.aspectRatioMode = e.target.value;
-      if (badgeRatio) {
-        badgeRatio.textContent = e.target.value === 'wide' ? '4:3' : '16:9';
-      }
-    });
-  });
-
-  // Settings Controls
-  triggerRadios.forEach(r => {
-    r.addEventListener('change', (e) => {
-      updateTriggerModeUI(e.target.value);
-    });
-  });
-
-  timerSlider.addEventListener('input', (e) => {
-    timerVal.textContent = `${parseFloat(e.target.value).toFixed(1)} s`;
-    if (badgeTimer) {
-      badgeTimer.textContent = `⏱️ ${parseFloat(e.target.value).toFixed(0)}s`;
+    if (settings.triggerMode === 'shutter') {
+      triggerReveal();
+    } else {
+      // Shutter press animation
+      shutterBtn.style.transform = 'scale(0.92)';
+      setTimeout(() => shutterBtn.style.transform = 'scale(1)', 100);
     }
   });
 
-  colorSensSlider.addEventListener('input', (e) => {
-    const v = parseInt(e.target.value, 10);
-    const labels = ['Strict', 'Medium-Strict', 'Balanced', 'Medium-Lenient', 'Lenient'];
-    colorSensVal.textContent = labels[v - 1] || 'Balanced';
+  // Long press shutter button opens disguised settings
+  let shutterPressTimer = null;
+  shutterBtn.addEventListener('touchstart', () => {
+    shutterPressTimer = setTimeout(() => {
+      openSettingsModal();
+    }, 700);
+  });
+  shutterBtn.addEventListener('touchend', () => clearTimeout(shutterPressTimer));
+  shutterBtn.addEventListener('touchcancel', () => clearTimeout(shutterPressTimer));
+
+  // Switch Camera Flip Button
+  btnFlip.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (navigator.vibrate) navigator.vibrate(10);
+    toggleCameraFlip();
+  });
+
+  // Top Bar Controls
+  document.getElementById('btn-flash').addEventListener('click', () => {
+    if (navigator.vibrate) navigator.vibrate(8);
+  });
+
+  document.getElementById('btn-ev').addEventListener('click', () => {
+    if (navigator.vibrate) navigator.vibrate(8);
+  });
+
+  document.getElementById('btn-live-color').addEventListener('click', () => {
+    if (navigator.vibrate) navigator.vibrate(8);
+  });
+
+  // Hamburger Menu opens settings
+  btnMenu.addEventListener('click', () => {
+    openSettingsModal();
+  });
+
+  // Floating Right Buttons
+  ['btn-master', 'btn-filters', 'btn-retouch'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', () => {
+      if (navigator.vibrate) navigator.vibrate(8);
+    });
+  });
+
+  // Mode Carousel items
+  modeItems.forEach(item => {
+    item.addEventListener('click', () => {
+      modeItems.forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      if (navigator.vibrate) navigator.vibrate(12);
+    });
+  });
+
+  // Settings Modal Controls
+  btnCloseSettings.addEventListener('click', closeSettingsModal);
+  settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) closeSettingsModal();
+  });
+
+  // Reveal Trigger segmented buttons
+  document.querySelectorAll('[data-trigger]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-trigger]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      settings.triggerMode = btn.dataset.trigger;
+      saveSettings();
+    });
+  });
+
+  // Transition style segmented buttons
+  document.querySelectorAll('[data-transition]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-transition]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      settings.transitionStyle = btn.dataset.transition;
+      saveSettings();
+    });
+  });
+
+  // Timer duration slider
+  inputTimer.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    settings.timerDuration = val;
+    valTimer.textContent = `${val.toFixed(1)}s`;
+    saveSettings();
+  });
+
+  // Sensitivity slider
+  inputSens.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    settings.colorSensitivity = val;
+    valSens.textContent = `${val.toFixed(1)}x`;
+    saveSettings();
+  });
+
+  // Manual test trigger & reset
+  btnManualReveal.addEventListener('click', () => {
+    triggerReveal();
+    closeSettingsModal();
+  });
+
+  btnResetApp.addEventListener('click', () => {
+    resetToRed();
+    closeSettingsModal();
+  });
+
+  // Hardware Volume Keys reveal
+  window.addEventListener('keydown', (e) => {
+    if (settings.triggerMode === 'volume' && (e.key === 'VolumeDown' || e.key === 'VolumeUp')) {
+      e.preventDefault();
+      triggerReveal();
+    }
   });
 }
 
-function renderZoomPills() {
-  if (!zoomContainer) return;
-  if (currentFacingMode === 'user') {
-    // OnePlus 12R Front Camera (.8 wide-angle & 1x)
-    zoomContainer.innerHTML = `
-      <button class="zoom-btn ${currentZoom <= 0.85 ? 'active' : ''}" data-zoom="0.8">.8</button>
-      <button class="zoom-btn ${currentZoom > 0.85 ? 'active' : ''}" data-zoom="1.0">1x</button>
-    `;
-  } else {
-    // OnePlus 12R Rear Camera (.6 ultra-wide, 1x main, 2x, 5x)
-    zoomContainer.innerHTML = `
-      <button class="zoom-btn ${currentZoom <= 0.7 ? 'active' : ''}" data-zoom="0.6">.6</button>
-      <button class="zoom-btn ${currentZoom > 0.7 && currentZoom <= 1.5 ? 'active' : ''}" data-zoom="1.0">1x</button>
-      <button class="zoom-btn ${currentZoom > 1.5 && currentZoom <= 3.5 ? 'active' : ''}" data-zoom="2.0">2x</button>
-      <button class="zoom-btn ${currentZoom > 3.5 ? 'active' : ''}" data-zoom="5.0">5x</button>
-    `;
-  }
+function openSettingsModal() {
+  if (navigator.vibrate) navigator.vibrate(15);
+  // Sync UI with current settings
+  inputTimer.value = settings.timerDuration;
+  valTimer.textContent = `${settings.timerDuration.toFixed(1)}s`;
+  inputSens.value = settings.colorSensitivity;
+  valSens.textContent = `${settings.colorSensitivity.toFixed(1)}x`;
 
-  zoomContainer.querySelectorAll('.zoom-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const z = parseFloat(btn.dataset.zoom) || 1.0;
-      setZoom(z);
-    });
+  document.querySelectorAll('[data-trigger]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.trigger === settings.triggerMode);
   });
+
+  document.querySelectorAll('[data-transition]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.transition === settings.transitionStyle);
+  });
+
+  settingsModal.classList.remove('hidden');
 }
 
-function setZoom(z) {
-  currentZoom = z;
-  if (zoomContainer) {
-    zoomContainer.querySelectorAll('.zoom-btn').forEach(b => {
-      const val = parseFloat(b.dataset.zoom) || 1.0;
-      if (Math.abs(val - z) < 0.05) {
-        b.classList.add('active');
-      } else {
-        b.classList.remove('active');
-      }
-    });
-  }
-
-  applyHardwareZoom(z);
-}
-
-function updateTriggerModeUI(mode) {
-  if (mode === 'timer') {
-    timerSettingsGroup.classList.remove('hidden');
-  } else {
-    timerSettingsGroup.classList.add('hidden');
-  }
-}
-
-function applySettingsToUI() {
-  aspectRadios.forEach(r => r.checked = (r.value === settings.aspectRatioMode));
-  if (badgeRatio) {
-    badgeRatio.textContent = settings.aspectRatioMode === 'wide' ? '4:3' : '16:9';
-  }
-
-  triggerRadios.forEach(r => r.checked = (r.value === settings.triggerMode));
-  updateTriggerModeUI(settings.triggerMode);
-  if (badgeTimer) {
-    badgeTimer.textContent = settings.triggerMode === 'timer' ? `⏱️ ${parseFloat(settings.timerDuration).toFixed(0)}s` : '⏱️ Off';
-  }
-
-  transitionRadios.forEach(r => r.checked = (r.value === settings.transitionStyle));
-
-  timerSlider.value = settings.timerDuration;
-  timerVal.textContent = `${parseFloat(settings.timerDuration).toFixed(1)} s`;
-
-  colorSensSlider.value = settings.colorSensitivity;
-  const labels = ['Strict', 'Medium-Strict', 'Balanced', 'Medium-Lenient', 'Lenient'];
-  colorSensVal.textContent = labels[settings.colorSensitivity - 1] || 'Balanced';
-}
-
-function saveSettingsFromUI() {
-  const selectedAspect = document.querySelector('input[name="aspectRatioMode"]:checked')?.value || 'fill';
-  const selectedMode = document.querySelector('input[name="triggerMode"]:checked')?.value || 'timer';
-  const selectedTrans = document.querySelector('input[name="transitionStyle"]:checked')?.value || 'direct';
-  settings.aspectRatioMode = selectedAspect;
-  settings.triggerMode = selectedMode;
-  settings.transitionStyle = selectedTrans;
-  settings.timerDuration = parseFloat(timerSlider.value) || 10.0;
-  settings.colorSensitivity = parseInt(colorSensSlider.value, 10) || 3;
-  if (badgeRatio) {
-    badgeRatio.textContent = settings.aspectRatioMode === 'wide' ? '4:3' : '16:9';
-  }
-  if (badgeTimer) {
-    badgeTimer.textContent = settings.triggerMode === 'timer' ? `⏱️ ${parseFloat(settings.timerDuration).toFixed(0)}s` : '⏱️ Off';
-  }
-  saveSettings();
+function closeSettingsModal() {
+  settingsModal.classList.add('hidden');
 }
