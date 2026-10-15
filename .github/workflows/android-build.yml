@@ -1,0 +1,58 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Prepare Web Assets for Capacitor
+        run: |
+          mkdir -p www
+          cp index.html style.css script.js manifest.json sw.js www/
+          cp -r icons www/
+          if [ -f bicycle_blue_card.png ]; then cp bicycle_blue_card.png www/; fi
+          echo "Web assets prepared in www/"
+
+      - name: Initialize Capacitor and Android Platform
+        run: |
+          npm init -y
+          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
+          npx cap init "Camera" "com.android.camera.live" --web-dir www
+          npx cap add android
+
+      - name: Add Camera Permissions to Android Manifest
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          sed -i '/<\/manifest>/i \    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />' $MANIFEST
+          npx cap sync android
+
+      - name: Build Android Debug APK
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Downloadable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Camera-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
