@@ -176,6 +176,40 @@
                 <span>Direct Cut</span>
               </label>
             </div>
+          <!-- Color Wheel & Target Tuning -->
+          <div class="sheet-section-divider">
+            <span class="sheet-section-title">Color Calibration</span>
+          </div>
+
+          <!-- Color Pickers Row -->
+          <div class="sheet-color-row">
+            <!-- Detect Color -->
+            <div class="color-picker-box">
+              <label class="color-box-label" for="picker-source-color">Detect Color</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="picker-source-color" value="#d81b1b" class="color-circle-input">
+                <span id="source-color-hex" class="color-hex-tag">#d81b1b</span>
+              </div>
+            </div>
+
+            <div class="color-arrow-indicator">➔</div>
+
+            <!-- Target Color -->
+            <div class="color-picker-box">
+              <label class="color-box-label" for="picker-target-color">Change It To</label>
+              <div class="color-input-wrapper">
+                <input type="color" id="picker-target-color" value="#0a2265" class="color-circle-input">
+                <span id="target-color-hex" class="color-hex-tag">#0a2265</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Presets -->
+          <div class="sheet-presets-row">
+            <button type="button" class="preset-chip active" data-src="#d81b1b" data-tgt="#0a2265">🔴➔🔵 Bicycle Blue</button>
+            <button type="button" class="preset-chip" data-src="#d81b1b" data-tgt="#d4af37">🔴➔🟡 Gold</button>
+            <button type="button" class="preset-chip" data-src="#0a2265" data-tgt="#d81b1b">🔵➔🔴 Blue to Red</button>
+            <button type="button" class="preset-chip" data-src="#1b8a2b" data-tgt="#0a2265">🟢➔🔵 Green to Blue</button>
           </div>
 
           <!-- Timer Delay Slider (if Timer selected) -->

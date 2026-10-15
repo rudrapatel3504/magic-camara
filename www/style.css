@@ -558,6 +558,118 @@ html, body {
   cursor: pointer;
 }
 
+.sheet-section-divider {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sheet-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #8ab4f8;
+}
+
+.sheet-color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #141518;
+  padding: 12px 14px;
+  border-radius: 16px;
+}
+
+.color-picker-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  flex: 1;
+}
+
+.color-box-label {
+  font-size: 12px;
+  color: #939094;
+  font-weight: 500;
+}
+
+.color-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 10px 4px 6px;
+  border-radius: 24px;
+}
+
+.color-circle-input {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  background: transparent;
+  padding: 0;
+  outline: none;
+}
+
+.color-circle-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-circle-input::-webkit-color-swatch {
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+.color-circle-input::-moz-color-swatch {
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+.color-hex-tag {
+  font-size: 13px;
+  font-family: monospace;
+  color: #ffffff;
+}
+
+.color-arrow-indicator {
+  font-size: 18px;
+  color: #8ab4f8;
+  font-weight: bold;
+}
+
+.sheet-presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.preset-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #c4c6d0;
+  padding: 6px 11px;
+  border-radius: 16px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-chip:active,
+.preset-chip.active {
+  background: #8ab4f8;
+  color: #040c1a;
+  border-color: #8ab4f8;
+  font-weight: 600;
+}
+
 .sheet-actions {
   margin-top: 10px;
 }

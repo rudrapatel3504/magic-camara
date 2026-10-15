@@ -1,25 +1,27 @@
 /**
- * GOOGLE CAMERA (GCAM) PWA - CLEAN CARD TRANSPOSITION
+ * GOOGLE CAMERA (GCAM) PWA - ADVANCED COLOR TRANSPOSITION
  * ============================================================================
  * Disguised 100% as the native Google Pixel Camera app.
- * Supports REAR and FRONT (selfie) camera switching with natural mirroring!
- * Red Playing Cards seamlessly appear Bicycle Blue in real-time.
- * Tap Shutter Button (or timer) to make blue layer fade away / disappear.
+ * Color Wheel & Color Picker: Pick EXACT color to detect and EXACT color to change to!
+ * Supports REAR and FRONT (selfie) camera switching with natural mirroring.
+ * Tap Shutter Button (or timer) to make color layer fade away / disappear.
  * Zero flash animations. Zero microphone/audio permissions.
  */
 
-const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v6';
+const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v7';
 
 const DEFAULT_SETTINGS = {
   triggerMode: 'tap',          // 'tap' (Tap shutter/screen) or 'timer' (Auto countdown)
   transitionStyle: 'fade',     // 'fade' (Smooth fade away) or 'direct' (Instant cut)
   timerDuration: 3.0,          // Seconds
   colorSensitivity: 3,         // 1 (strict) to 5 (lenient)
+  sourceColor: '#d81b1b',      // Exact color to detect (Default: Bicycle Red)
+  targetColor: '#0a2265',      // Exact color to change it to (Default: Bicycle Navy Blue)
 };
 
 const STATE = {
-  ARMED: 'armed',              // Red card appears blue
-  REVEALED: 'revealed'         // Blue layer faded away (Red card visible)
+  ARMED: 'armed',              // Color transposition active
+  REVEALED: 'revealed'         // Color layer faded away (real color visible)
 };
 
 let appState = STATE.ARMED;
@@ -30,7 +32,7 @@ let currentFacingMode = 'environment';
 let currentStream = null;
 let flipRotation = 0;
 
-// Blue amount for smooth fade transition (1.0 = full blue, 0.0 = real red)
+// Fade transition progress (1.0 = transposed color, 0.0 = original color)
 let currentBlueAmount = 1.0;
 let targetBlueAmount = 1.0;
 let lastFrameTime = performance.now();
@@ -60,6 +62,13 @@ const timerVal = document.getElementById('timer-val');
 const colorSensSlider = document.getElementById('color-sens-slider');
 const colorSensVal = document.getElementById('color-sens-val');
 
+// Color Picker Elements
+const pickerSourceColor = document.getElementById('picker-source-color');
+const pickerTargetColor = document.getElementById('picker-target-color');
+const sourceColorHex = document.getElementById('source-color-hex');
+const targetColorHex = document.getElementById('target-color-hex');
+const presetChips = document.querySelectorAll('.preset-chip');
+
 // WebGL Variables
 let gl = null;
 let shaderProgram = null;
@@ -68,6 +77,8 @@ let positionBuffer = null;
 let texCoordBuffer = null;
 let uBlueAmountLocation = null;
 let uSensitivityLocation = null;
+let uSourceColorLocation = null;
+let uTargetColorLocation = null;
 let uVideoAspectLocation = null;
 let uScreenAspectLocation = null;
 let uIsFrontCameraLocation = null;
@@ -89,11 +100,10 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', handleResize);
 
-  // Auto-start camera immediately
   startCameraStream();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=6.0').then(reg => reg.update()).catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=7.0').then(reg => reg.update()).catch(() => {});
   }
 });
 
@@ -111,6 +121,17 @@ function saveSettings() {
   } catch (e) {}
 }
 
+function hexToRgb(hex) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const num = parseInt(h, 16);
+  return [
+    ((num >> 16) & 255) / 255.0,
+    ((num >> 8) & 255) / 255.0,
+    (num & 255) / 255.0
+  ];
+}
+
 function handleResize() {
   const dpr = window.devicePixelRatio || 1;
   arCanvas.width = window.innerWidth * dpr;
@@ -122,7 +143,7 @@ function handleResize() {
 }
 
 // ============================================================================
-// 2. WEBGL CHROMATIC SHADER WITH FRONT/REAR CAMERA SUPPORT
+// 2. WEBGL REAL-TIME COLOR WHEEL & TRANSPOSITION SHADER
 // ============================================================================
 function initRenderer() {
   try {
@@ -138,7 +159,6 @@ function initRenderer() {
     return;
   }
 
-  // Vertex Shader with natural selfie mirror support
   const vsSource = `
     attribute vec2 a_position;
     attribute vec2 a_texCoord;
@@ -158,7 +178,6 @@ function initRenderer() {
         coord.x = (coord.x - 0.5) * scale + 0.5;
       }
 
-      // Natural horizontal mirror for front selfie camera
       if (u_isFrontCamera) {
         coord.x = 1.0 - coord.x;
       }
@@ -167,13 +186,15 @@ function initRenderer() {
     }
   `;
 
-  // Fragment Shader: Converts red ink into authentic Bicycle Rider Back Blue
+  // Fragment Shader: Matches exact source color on the color wheel and converts to exact target color
   const fsSource = `
     precision mediump float;
     varying vec2 v_texCoord;
     uniform sampler2D u_image;
     uniform float u_blueAmount;
     uniform float u_sensitivity;
+    uniform vec3 u_sourceColor;
+    uniform vec3 u_targetColor;
 
     vec3 rgb2hsv(vec3 c) {
       vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -193,33 +214,40 @@ function initRenderer() {
       vec4 color = texture2D(u_image, v_texCoord);
 
       if (u_blueAmount > 0.001) {
-        vec3 hsv = rgb2hsv(color.rgb);
-        float h = hsv.x * 360.0;
-        float s = hsv.y;
-        float v = hsv.z;
+        vec3 pixelHsv = rgb2hsv(color.rgb);
+        vec3 sourceHsv = rgb2hsv(u_sourceColor);
 
-        // Strict Skin Exclusion: Human skin has substantial green (G/R > 0.56)
-        // Red card ink has very low green (G/R < 0.45)
+        // Angular distance on the color wheel (0° to 180°)
+        float hueDiff = abs(pixelHsv.x - sourceHsv.x) * 360.0;
+        if (hueDiff > 180.0) {
+          hueDiff = 360.0 - hueDiff;
+        }
+
+        // Sensitivity tolerance: maps 1-5 to max allowed hue deviation
+        float maxHueDiff = 14.0 + (u_sensitivity * 4.0);
+        float minSat = max(0.20, sourceHsv.y * 0.55);
+
+        bool isHueMatch = (hueDiff <= maxHueDiff);
+        bool hasSat = (pixelHsv.y >= minSat);
+
+        // Smart Skin Protection (if detecting red/orange hues, keep skin natural)
+        bool sourceIsRedOrWarm = (sourceHsv.x * 360.0 <= 40.0 || sourceHsv.x * 360.0 >= 330.0);
         float greenRatio = color.g / max(0.01, color.r);
-        bool isSkin = (greenRatio > 0.56) || (h >= 18.0 && h <= 45.0 && s < 0.55);
+        bool isSkin = sourceIsRedOrWarm && ((greenRatio > 0.56) || (pixelHsv.x * 360.0 >= 18.0 && pixelHsv.x * 360.0 <= 45.0 && pixelHsv.y < 0.55));
 
-        // Red Playing Card criteria
-        bool isRedHue = (h >= 342.0 || h <= 17.0);
-        float minSat = 0.40 - (u_sensitivity * 0.03);
-        bool hasCardSat = (s >= minSat);
-        bool redDominates = (color.r > color.g * 1.35) && (color.r > color.b * 1.35);
+        if (isHueMatch && hasSat && !isSkin && pixelHsv.z > 0.10) {
+          // Preserve shading, specular highlights, and paper contrast:
+          float pixelLum = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
+          float targetLum = max(0.01, 0.299 * u_targetColor.r + 0.587 * u_targetColor.g + 0.114 * u_targetColor.b);
 
-        if (!isSkin && isRedHue && hasCardSat && redDominates && v > 0.12) {
-          // Authentic Bicycle Rider Back Navy Blue target
-          vec3 navyBlue = vec3(
-            color.r * 0.02,
-            color.g * 0.22,
-            max(color.r * 0.85, 0.45)
-          );
+          // Scaled target matching the scene's natural lighting
+          vec3 mappedTarget = u_targetColor * clamp(pixelLum / targetLum, 0.2, 2.2);
 
-          float redness = clamp((color.r - max(color.g, color.b) - 0.10) / 0.20, 0.0, 1.0);
-          vec3 finalColor = mix(color.rgb, navyBlue, redness);
+          // Smooth edge falloff around the color boundaries
+          float blend = smoothstep(maxHueDiff, maxHueDiff * 0.35, hueDiff);
+          vec3 finalColor = mix(color.rgb, mappedTarget, blend);
 
+          // Fade or direct transition
           color.rgb = mix(color.rgb, finalColor, u_blueAmount);
         }
       }
@@ -260,6 +288,8 @@ function initRenderer() {
 
   uBlueAmountLocation = gl.getUniformLocation(shaderProgram, 'u_blueAmount');
   uSensitivityLocation = gl.getUniformLocation(shaderProgram, 'u_sensitivity');
+  uSourceColorLocation = gl.getUniformLocation(shaderProgram, 'u_sourceColor');
+  uTargetColorLocation = gl.getUniformLocation(shaderProgram, 'u_targetColor');
   uVideoAspectLocation = gl.getUniformLocation(shaderProgram, 'u_videoAspect');
   uScreenAspectLocation = gl.getUniformLocation(shaderProgram, 'u_screenAspect');
   uIsFrontCameraLocation = gl.getUniformLocation(shaderProgram, 'u_isFrontCamera');
@@ -312,10 +342,8 @@ async function toggleCameraFlip() {
   flipRotation += 180;
   btnFlip.style.transform = `rotate(${flipRotation}deg)`;
 
-  // Switch between 'environment' (back) and 'user' (front)
   currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
 
-  // Stop current stream before switching
   if (currentStream) {
     currentStream.getTracks().forEach(track => track.stop());
     currentStream = null;
@@ -337,7 +365,6 @@ function renderLoop() {
   const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
   lastFrameTime = now;
 
-  // Auto Timer check
   if (settings.triggerMode === 'timer' && appState === STATE.ARMED) {
     if (!armedStartTime) armedStartTime = now;
     if ((now - armedStartTime) / 1000 >= settings.timerDuration) {
@@ -345,7 +372,6 @@ function renderLoop() {
     }
   }
 
-  // Smooth Fade Animation: dissolve blue into natural red
   if (settings.transitionStyle === 'fade') {
     const fadeSpeed = 3.5;
     if (currentBlueAmount < targetBlueAmount) {
@@ -364,6 +390,8 @@ function renderLoop() {
 
     gl.uniform1f(uBlueAmountLocation, currentBlueAmount);
     gl.uniform1f(uSensitivityLocation, settings.colorSensitivity);
+    gl.uniform3fv(uSourceColorLocation, hexToRgb(settings.sourceColor));
+    gl.uniform3fv(uTargetColorLocation, hexToRgb(settings.targetColor));
     gl.uniform1i(uIsFrontCameraLocation, currentFacingMode === 'user' ? 1 : 0);
 
     const videoAspect = (videoEl.videoWidth || 1280) / (videoEl.videoHeight || 720);
@@ -420,7 +448,7 @@ function handleShutterClick() {
 }
 
 // ============================================================================
-// 6. GCAM UI INTERACTIONS
+// 6. GCAM UI & COLOR WHEEL PICKER INTERACTIONS
 // ============================================================================
 function initGCamUI() {
   cameraStarter.addEventListener('click', () => {
@@ -433,13 +461,13 @@ function initGCamUI() {
     handleShutterClick();
   });
 
-  // Camera Flip Button (Front / Rear Toggle)
+  // Camera Flip Button
   btnFlip.addEventListener('click', (e) => {
     e.stopPropagation();
     toggleCameraFlip();
   });
 
-  // Tap on viewfinder for focus reticle
+  // Viewfinder focus reticle
   arCanvas.addEventListener('click', (e) => {
     if (!isCameraRunning) {
       startCameraStream();
@@ -488,6 +516,46 @@ function initGCamUI() {
     const labels = ['Strict', 'Medium-Strict', 'Balanced', 'Medium-Lenient', 'Lenient'];
     colorSensVal.textContent = labels[v - 1] || 'Balanced';
   });
+
+  // Color Pickers Live Update
+  pickerSourceColor.addEventListener('input', (e) => {
+    sourceColorHex.textContent = e.target.value;
+    settings.sourceColor = e.target.value;
+    updateActiveChipState();
+  });
+
+  pickerTargetColor.addEventListener('input', (e) => {
+    targetColorHex.textContent = e.target.value;
+    settings.targetColor = e.target.value;
+    updateActiveChipState();
+  });
+
+  // Preset Chips
+  presetChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const src = chip.dataset.src;
+      const tgt = chip.dataset.tgt;
+      pickerSourceColor.value = src;
+      pickerTargetColor.value = tgt;
+      sourceColorHex.textContent = src;
+      targetColorHex.textContent = tgt;
+      settings.sourceColor = src;
+      settings.targetColor = tgt;
+
+      presetChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+  });
+}
+
+function updateActiveChipState() {
+  presetChips.forEach(chip => {
+    if (chip.dataset.src === settings.sourceColor && chip.dataset.tgt === settings.targetColor) {
+      chip.classList.add('active');
+    } else {
+      chip.classList.remove('active');
+    }
+  });
 }
 
 function updateTriggerModeUI(mode) {
@@ -510,6 +578,13 @@ function applySettingsToUI() {
   colorSensSlider.value = settings.colorSensitivity;
   const labels = ['Strict', 'Medium-Strict', 'Balanced', 'Medium-Lenient', 'Lenient'];
   colorSensVal.textContent = labels[settings.colorSensitivity - 1] || 'Balanced';
+
+  pickerSourceColor.value = settings.sourceColor;
+  pickerTargetColor.value = settings.targetColor;
+  sourceColorHex.textContent = settings.sourceColor;
+  targetColorHex.textContent = settings.targetColor;
+
+  updateActiveChipState();
 }
 
 function saveSettingsFromUI() {
@@ -519,5 +594,7 @@ function saveSettingsFromUI() {
   settings.transitionStyle = selectedTrans;
   settings.timerDuration = parseFloat(timerSlider.value) || 3.0;
   settings.colorSensitivity = parseInt(colorSensSlider.value, 10) || 3;
+  settings.sourceColor = pickerSourceColor.value;
+  settings.targetColor = pickerTargetColor.value;
   saveSettings();
 }
