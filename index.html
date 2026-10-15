@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Magic Camera - Card Transposition</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="description" content="Live AR Magic Trick: Instant Red to Blue Card Transposition">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Magic Card">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="blue_card.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Fullscreen Camera & AR Canvas -->
+  <div id="app-container">
+    <video id="camera-feed" playsinline autoplay muted></video>
+    <canvas id="ar-canvas"></canvas>
+
+    <!-- Hidden Downscaled Processing Canvas for Fast 60FPS Color Thresholding -->
+    <canvas id="proc-canvas" width="320" height="240" style="display: none;"></canvas>
+
+    <!-- Magician Secret Status Dot (pulsing when card is locked) -->
+    <div id="status-indicator" class="status-dot hidden" title="Tracking status"></div>
+
+    <!-- Optional Visual Flash for Reveal Moment -->
+    <div id="reveal-flash" class="reveal-flash"></div>
+
+    <!-- Secret Long-press Zone (Bottom-Left Corner) -->
+    <div id="secret-zone" class="secret-tap-zone" aria-label="Secret Trigger Zone"></div>
+
+    <!-- Secret Gear Icon (Top-Right Corner: auto-fades after 3 seconds) -->
+    <button id="gear-btn" class="gear-icon-btn fade-out" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+
+    <!-- Quick Tap Reset Hint (Magician can tap anywhere when revealed to re-arm) -->
+    <div id="rearm-overlay" class="rearm-banner hidden">
+      <span>Trick Complete • Tap Screen to Re-arm</span>
+    </div>
+
+    <!-- Clean Camera Start Screen -->
+    <div id="start-overlay" class="modal-overlay">
+      <div class="modal-card start-card">
+        <div class="camera-lens-icon">📷</div>
+        <h1>HD Camera</h1>
+        <p class="subtitle">Live Viewfinder</p>
+        <button id="btn-start" class="btn btn-primary">Open Camera</button>
+        <p id="perm-error" class="error-msg hidden"></p>
+      </div>
+    </div>
+
+    <!-- Hidden Settings Menu Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+      <div class="modal-card settings-card">
+        <div class="settings-header">
+          <h2>Secret Magician Settings</h2>
+          <button id="btn-close-settings-x" class="close-x">&times;</button>
+        </div>
+
+        <div class="settings-body">
+          <!-- Trigger Method Selection -->
+          <div class="form-group">
+            <label class="section-label">Reveal Trigger Mode</label>
+            <div class="radio-pill-group">
+              <label class="pill-option">
+                <input type="radio" name="triggerMode" value="audio" checked>
+                <span class="pill-text">🎙️ Finger Snap (Audio)</span>
+              </label>
+              <label class="pill-option">
+                <input type="radio" name="triggerMode" value="timer">
+                <span class="pill-text">⏱️ Auto Timer</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Timer Duration Slider (Visible when Timer selected) -->
+          <div id="timer-settings-group" class="form-group hidden">
+            <div class="label-with-value">
+              <label for="timer-slider">Timer Duration</label>
+              <span id="timer-val" class="badge">3.0 s</span>
+            </div>
+            <input type="range" id="timer-slider" min="2" max="10" step="0.5" value="3.0">
+            <small class="helper-text">Blue card disappears automatically after this delay once locked.</small>
+          </div>
+
+          <!-- Audio Snap Sensitivity Slider (Visible when Audio selected) -->
+          <div id="audio-settings-group" class="form-group">
+            <div class="label-with-value">
+              <label for="snap-slider">Snap Sensitivity</label>
+              <span id="snap-val" class="badge">Medium (70)</span>
+            </div>
+            <input type="range" id="snap-slider" min="30" max="95" step="1" value="70">
+            <div class="live-mic-meter-container">
+              <span class="meter-label">Live Mic Level:</span>
+              <div class="mic-meter-bar">
+                <div id="mic-meter-fill" class="mic-meter-fill"></div>
+                <div id="mic-threshold-mark" class="mic-threshold-mark"></div>
+              </div>
+            </div>
+            <small class="helper-text">Snap your fingers to see the level spike past the threshold marker.</small>
+          </div>
+
+          <!-- Card Appearance Customization -->
+          <div class="form-group">
+            <label class="section-label">Blue Card Image Source</label>
+            <div class="card-preview-row">
+              <img id="card-preview-img" src="blue_card.svg" alt="Card Preview" class="card-thumb">
+              <div class="card-preview-inputs">
+                <input type="text" id="card-url-input" placeholder="Custom Image URL or Leave Empty for Default" class="text-input">
+                <button type="button" id="btn-reset-card-url" class="btn btn-secondary btn-sm">Use Built-in Blue Card</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Color Tracking Calibration -->
+          <div class="form-group">
+            <div class="label-with-value">
+              <label for="color-sens-slider">Red Color Sensitivity</label>
+              <span id="color-sens-val" class="badge">Balanced</span>
+            </div>
+            <input type="range" id="color-sens-slider" min="1" max="5" step="1" value="3">
+            <small class="helper-text">Adjust if room lighting is warm or shadows are heavy.</small>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="actions-row">
+            <button id="btn-rearm-trick" class="btn btn-secondary">⚡ Re-arm Trick Now</button>
+            <button id="btn-save-settings" class="btn btn-primary">Save &amp; Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
