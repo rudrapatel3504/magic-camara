@@ -6,12 +6,13 @@
 // ============================================================================
 // 1. GLOBAL STATE & CONFIGURATION
 // ============================================================================
-const SETTINGS_STORAGE_KEY = 'oneplus12r_camera_settings_v12';
+const SETTINGS_STORAGE_KEY = 'oneplus12r_camera_settings_v18';
 
 const DEFAULT_SETTINGS = {
   triggerMode: 'timer',       // 'timer' | 'shutter' | 'volume'
   timerDuration: 10.0,        // 10.0s auto reveal from camera open
   transitionStyle: 'direct',  // 'direct' (instant card switch) | 'fade' (smooth)
+  colorDirection: 'blue_to_red', // 'blue_to_red' (first blue then turns red) | 'red_to_blue'
   colorSensitivity: 1.0,      // red spectrum tolerance
   aspectRatioMode: '4:3',     // Native 4:3 uncropped OnePlus sensor
   volumeTrigger: true,
@@ -20,6 +21,15 @@ const DEFAULT_SETTINGS = {
 };
 
 let settings = loadSettings();
+
+function getInitialAmount() {
+  // In shader: 0.0 = Blue Transformed, 1.0 = Original Red
+  return settings.colorDirection === 'blue_to_red' ? 0.0 : 1.0;
+}
+
+function getRevealedAmount() {
+  return settings.colorDirection === 'blue_to_red' ? 1.0 : 0.0;
+}
 
 const STATE = {
   INITIAL: 'initial',
@@ -37,10 +47,9 @@ let isCameraRunning = false;
 let armedStartTime = 0;
 let lastFrameTime = performance.now();
 
-// Transformation interpolation values
-// 1.0 = Red Bicycle Card, 0.0 = Blue Bicycle Card
-let currentBlueAmount = 1.0;
-let targetBlueAmount = 1.0;
+// Transformation interpolation values (0.0 = Blue Card, 1.0 = Red Card)
+let currentBlueAmount = 0.0;
+let targetBlueAmount = 0.0;
 
 // DOM References
 const videoEl = document.getElementById('camera-feed');
@@ -393,8 +402,8 @@ async function startCameraStream() {
     cameraStarter.classList.add('hidden');
     isCameraRunning = true;
     appState = STATE.ARMED;
-    currentBlueAmount = 1.0;
-    targetBlueAmount = 1.0;
+    currentBlueAmount = getInitialAmount();
+    targetBlueAmount = getInitialAmount();
     armedStartTime = performance.now();
 
     requestAnimationFrame(renderLoop);
@@ -520,19 +529,18 @@ function triggerReveal() {
   if (cueDot) cueDot.style.opacity = '0.0';
   if (appState === STATE.REVEALED) return;
   appState = STATE.REVEALED;
-  // Instantly cut card from red to blue
-  targetBlueAmount = 0.0;
+  targetBlueAmount = getRevealedAmount();
   if (settings.transitionStyle === 'direct') {
-    currentBlueAmount = 0.0;
+    currentBlueAmount = targetBlueAmount;
   }
 }
 
-function resetToRed() {
+function resetCard() {
   if (cueDot) cueDot.style.opacity = '0.0';
   appState = STATE.ARMED;
   armedStartTime = performance.now();
-  targetBlueAmount = 1.0;
-  currentBlueAmount = 1.0;
+  targetBlueAmount = getInitialAmount();
+  currentBlueAmount = getInitialAmount();
 }
 
 // ============================================================================
@@ -635,6 +643,17 @@ function setupEventListeners() {
     if (e.target === settingsModal) closeSettingsModal();
   });
 
+  // Color Direction segmented buttons (Blue -> Red vs Red -> Blue)
+  document.querySelectorAll('[data-direction]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-direction]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      settings.colorDirection = btn.dataset.direction;
+      saveSettings();
+      resetCard();
+    });
+  });
+
   // Reveal Trigger segmented buttons
   document.querySelectorAll('[data-trigger]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -678,7 +697,7 @@ function setupEventListeners() {
   });
 
   btnResetApp.addEventListener('click', () => {
-    resetToRed();
+    resetCard();
     closeSettingsModal();
   });
 
@@ -698,6 +717,10 @@ function openSettingsModal() {
   valTimer.textContent = `${settings.timerDuration.toFixed(1)}s`;
   inputSens.value = settings.colorSensitivity;
   valSens.textContent = `${settings.colorSensitivity.toFixed(1)}x`;
+
+  document.querySelectorAll('[data-direction]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.direction === settings.colorDirection);
+  });
 
   document.querySelectorAll('[data-trigger]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.trigger === settings.triggerMode);
