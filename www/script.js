@@ -165,19 +165,71 @@ function initRenderer() {
     uniform float u_blueAmount;
     uniform float u_sensitivity;
 
-    vec3 rgb2hsv(vec3 c) {
-      vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-      vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-      vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-      float d = q.x - min(q.w, q.y);
-      float e = 1.0e-10;
-      return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+  // Fragment Shader: Oklab Perceptual Chromatic Engine with Specular Highlight Preservation
+  const fsSource = `
+    precision mediump float;
+    varying vec2 v_texCoord;
+    uniform sampler2D u_image;
+    uniform float u_blueAmount;
+    uniform float u_sensitivity;
+
+    // Fast, robust cube root for GLSL ES
+    float cbrt_approx(float x) {
+      if (x <= 0.0) return 0.0;
+      return pow(x, 0.33333333);
     }
 
-    vec3 hsv2rgb(vec3 c) {
-      vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-      vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-      return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+    // sRGB to Linear RGB
+    vec3 srgb2linear(vec3 c) {
+      return mix(
+        c / 12.92,
+        pow((c + 0.055) / 1.055, vec3(2.4)),
+        step(0.04045, c)
+      );
+    }
+
+    // Linear RGB to sRGB
+    vec3 linear2srgb(vec3 c) {
+      vec3 cl = clamp(c, 0.0, 1.0);
+      return mix(
+        cl * 12.92,
+        1.055 * pow(cl, vec3(0.41666667)) - 0.055,
+        step(0.0031308, cl)
+      );
+    }
+
+    // Linear RGB to Oklab Perceptual Color Space (L, a, b)
+    vec3 linear2oklab(vec3 c) {
+      float l = 0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b;
+      float m = 0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b;
+      float s = 0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b;
+
+      float l_ = cbrt_approx(l);
+      float m_ = cbrt_approx(m);
+      float s_ = cbrt_approx(s);
+
+      return vec3(
+        0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+        1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+        0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+      );
+    }
+
+    // Oklab to Linear RGB
+    vec3 oklab2linear(vec3 c) {
+      float l_ = c.x + 0.3963377774 * c.y + 0.2158037573 * c.z;
+      float m_ = c.x - 0.1055613458 * c.y - 0.0638541728 * c.z;
+      float s_ = c.x - 0.0894841775 * c.y - 1.2914855480 * c.z;
+
+      float l = l_ * l_ * l_;
+      float m = m_ * m_ * m_;
+      float s = s_ * s_ * s_;
+
+      return vec3(
+        +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+      );
     }
 
     void main() {
@@ -188,66 +240,65 @@ function initRenderer() {
 
       vec4 color = texture2D(u_image, v_texCoord);
 
-      if (u_blueAmount > 0.001) {
-        vec3 hsv = rgb2hsv(color.rgb);
-        float hDeg = hsv.x * 360.0;
-        // Signed hue centered around red (0°): [-180° to +180°]
-        float signedHue = (hDeg > 180.0) ? (hDeg - 360.0) : hDeg;
+      // Only transform when card is revealed (u_blueAmount < 0.999)
+      if (u_blueAmount < 0.999) {
+        vec3 linRgb = srgb2linear(color.rgb);
+        vec3 oklab = linear2oklab(linRgb);
 
-        // Tolerance window: covers deep ruby/crimson (-35°) up to warm orange-red (+38°)
-        float minHue = -35.0 - (u_sensitivity * 1.5);
-        float maxHue = 38.0 + (u_sensitivity * 2.0);
+        float L = oklab.x;
+        float a = oklab.y;
+        float b = oklab.z;
 
-        if (signedHue >= minHue && signedHue <= maxHue) {
-          // 1. Ink Saturation Check (white borders & background have sat < 0.22, card ink has sat >= 0.40)
-          float satWeight = smoothstep(0.22, 0.42, hsv.y);
+        float chroma = sqrt(a * a + b * b);
+        float hueRad = atan(b, a);
+        float hueDeg = degrees(hueRad);
+        if (hueDeg < 0.0) hueDeg += 360.0;
 
-          // 2. Minimum Value (protects pure blacks & deep shadows)
-          float valWeight = smoothstep(0.08, 0.18, hsv.z);
+        // 1. Bicycle Red Ink Hue Detection in Oklab (Centroid = 27.0°)
+        // Unlike HSV, Oklab hue remains locked at 27° across bright light and shadows
+        float hueDiff = abs(hueDeg - 27.0);
+        float hueWeight = 1.0 - smoothstep(12.0 * u_sensitivity, 24.0 * u_sensitivity, hueDiff);
 
-          // 3. Red Channel Dominance (true red/orange card ink has R significantly higher than G and B)
-          float redDom = color.r - max(color.g, color.b);
-          float redDomWeight = smoothstep(0.08, 0.22, redDom);
+        // 2. Ink Chroma Threshold (Separates red ink from white card border & background)
+        float chromaWeight = smoothstep(0.040 / u_sensitivity, 0.082, chroma);
 
-          // 4. Skin Protection Filter:
-          // Human skin has high green-to-red ratio (typically g/r > 0.54) and lower saturation,
-          // while Bicycle card ink has low green (g/r < 0.40) and high sat.
-          float greenRatio = color.g / max(0.01, color.r);
-          float skinProb = 0.0;
-          if (greenRatio > 0.54 && signedHue > 8.0) {
-            skinProb = smoothstep(0.54, 0.72, greenRatio) * (1.0 - smoothstep(0.42, 0.65, hsv.y));
-          } else if (greenRatio > 0.66) {
-            skinProb = smoothstep(0.66, 0.82, greenRatio);
-          }
-          float nonSkin = 1.0 - clamp(skinProb, 0.0, 1.0);
+        // 3. Minimum Lightness (Protects pure black shadow contours)
+        float lumWeight = smoothstep(0.08, 0.18, L);
 
-          float mask = satWeight * valWeight * redDomWeight * nonSkin;
+        // 4. Surgical Melanin/Skin Separation (Human skin in Oklab is 52° - 58°)
+        float skinDist = abs(hueDeg - 55.0);
+        float nonSkin = smoothstep(6.0, 14.0, skinDist);
 
-          if (mask > 0.01) {
-            // MAP EVERY SHADE OF RED/ORANGE DIRECTLY TO ITS CORRESPONDING SHADE OF BLUE:
-            // Crimson/ruby (-25°) maps to deep royal navy blue (~227°)
-            // Pure red (0°) maps to classic Bicycle Rider Back blue (~222°)
-            // Scarlet (+12°) maps to rich sapphire blue (~218°)
-            // Orange-red (+35°) maps to vibrant cobalt blue (~211°)
-            float targetHueDeg = 222.0 - (signedHue * 0.32);
-            float targetHue = targetHueDeg / 360.0;
+        float mask = hueWeight * chromaWeight * lumWeight * nonSkin;
 
-            // Target saturation preserves the card's original ink saturation & contrast
-            float targetSat = clamp(hsv.y * 1.08, 0.72, 0.98);
+        if (mask > 0.005) {
+          // BICYCLE ROYAL BLUE TARGET CHROMATIC VECTOR
+          // Target Angle in Oklab is 263.5° (Classic Bicycle Rider Back Blue)
+          float targetRad = 4.5988;
+          vec2 targetDir = vec2(cos(targetRad), sin(targetRad));
 
-            // Base blue corresponding tone
-            vec3 blueBase = hsv2rgb(vec3(targetHue, targetSat, 1.0));
+          // Chroma Mapping: Rich, solid royal blue pigment
+          float targetChroma = max(chroma * 1.12, 0.185);
 
-            // Optical Luminance Matching:
-            // Match the physical perceived luminance so cherub lines, scrolls,
-            // highlights, reflections, and shadow contours look 100% authentic.
-            float originalLum = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
-            vec3 blueCandidate = blueBase * (originalLum * 1.14);
+          // Specular Highlight & Gloss Preservation:
+          // In bright light, glossy plastic reflections are naturally white.
+          // We allow the natural specular sheen to sit on top of the blue ink.
+          float highlightSheen = smoothstep(0.68, 0.95, L);
+          targetChroma = mix(targetChroma, targetChroma * 0.45, highlightSheen);
 
-            vec3 finalColor = mix(color.rgb, blueCandidate, mask * u_blueAmount);
-            gl_FragColor = vec4(finalColor, color.a);
-            return;
-          }
+          vec2 targetAB = targetDir * targetChroma;
+          float targetL = L * 0.96;
+
+          // Convert back from Oklab to Linear RGB and sRGB
+          vec3 blueLin = oklab2linear(vec3(targetL, targetAB.x, targetAB.y));
+          vec3 blueSrgb = linear2srgb(blueLin);
+
+          // u_blueAmount: 1.0 = Original Red, 0.0 = Blue Transformed
+          float transformAmount = (1.0 - u_blueAmount) * mask;
+          vec3 finalColor = mix(color.rgb, blueSrgb, transformAmount);
+
+          gl_FragColor = vec4(finalColor, color.a);
+          return;
         }
       }
 
