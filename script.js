@@ -6,14 +6,14 @@
 // ============================================================================
 // 1. GLOBAL STATE & CONFIGURATION
 // ============================================================================
-const SETTINGS_STORAGE_KEY = 'oneplus12r_camera_settings_v18';
+const SETTINGS_STORAGE_KEY = 'oneplus12r_camera_settings_v19';
 
 const DEFAULT_SETTINGS = {
   triggerMode: 'timer',       // 'timer' | 'shutter' | 'volume'
   timerDuration: 10.0,        // 10.0s auto reveal from camera open
   transitionStyle: 'direct',  // 'direct' (instant card switch) | 'fade' (smooth)
-  colorDirection: 'blue_to_red', // 'blue_to_red' (first blue then turns red) | 'red_to_blue'
-  colorSensitivity: 1.0,      // red spectrum tolerance
+  colorDirection: 'blue_card', // 'blue_card' (holding Blue card, shows Red -> reveals Blue) | 'red_card' (holding Red card, shows Blue -> reveals Red)
+  colorSensitivity: 1.0,      // spectrum tolerance
   aspectRatioMode: '4:3',     // Native 4:3 uncropped OnePlus sensor
   volumeTrigger: true,
   shutterTrigger: true,
@@ -23,12 +23,12 @@ const DEFAULT_SETTINGS = {
 let settings = loadSettings();
 
 function getInitialAmount() {
-  // In shader: 0.0 = Blue Transformed, 1.0 = Original Red
-  return settings.colorDirection === 'blue_to_red' ? 0.0 : 1.0;
+  // In shader: 0.0 = Disguise Active, 1.0 = Real Card Revealed
+  return 0.0;
 }
 
 function getRevealedAmount() {
-  return settings.colorDirection === 'blue_to_red' ? 1.0 : 0.0;
+  return 1.0;
 }
 
 const STATE = {
@@ -82,6 +82,7 @@ let uBlueAmountLocation = null;
 let uSensitivityLocation = null;
 let uUvScaleLocation = null;
 let uIsFrontCameraLocation = null;
+let uCardModeLocation = null;
 let ctx2d = null;
 
 // ============================================================================
@@ -173,6 +174,7 @@ function initRenderer() {
     uniform sampler2D u_image;
     uniform float u_blueAmount;
     uniform float u_sensitivity;
+    uniform int u_cardMode;
 
     // Fast, robust cube root for GLSL ES
     float cbrt_approx(float x) {
@@ -241,7 +243,7 @@ function initRenderer() {
 
       vec4 color = texture2D(u_image, v_texCoord);
 
-      // Only transform when card is revealed (u_blueAmount < 0.999)
+      // Only transform when disguise is active (u_blueAmount < 0.999)
       if (u_blueAmount < 0.999) {
         vec3 linRgb = srgb2linear(color.rgb);
         vec3 oklab = linear2oklab(linRgb);
@@ -255,48 +257,76 @@ function initRenderer() {
         float hueDeg = degrees(hueRad);
         if (hueDeg < 0.0) hueDeg += 360.0;
 
-        // 1. Bicycle Red Ink Hue Detection in Oklab (Centroid = 27.0°)
-        // Unlike HSV, Oklab hue remains locked at 27° across bright light and shadows
-        float hueDiff = abs(hueDeg - 27.0);
-        float hueWeight = 1.0 - smoothstep(12.0 * u_sensitivity, 24.0 * u_sensitivity, hueDiff);
+        float mask = 0.0;
+        vec2 targetDir = vec2(0.0);
+        float targetChroma = 0.0;
+        float targetL = L;
 
-        // 2. Ink Chroma Threshold (Separates red ink from white card border & background)
-        float chromaWeight = smoothstep(0.040 / u_sensitivity, 0.082, chroma);
+        if (u_cardMode == 0) {
+          // ============================================================
+          // MODE 0: PHYSICAL BLUE CARD IN HAND (SHOWS RED -> TURNS BLUE)
+          // ============================================================
+          // 1. Detect Bicycle Blue Ink (Centroid = 263.5°)
+          float hueDiff = abs(hueDeg - 263.5);
+          if (hueDiff > 180.0) hueDiff = 360.0 - hueDiff;
+          float hueWeight = 1.0 - smoothstep(18.0 * u_sensitivity, 36.0 * u_sensitivity, hueDiff);
 
-        // 3. Minimum Lightness (Protects pure black shadow contours)
-        float lumWeight = smoothstep(0.08, 0.18, L);
+          // 2. Ink Chroma Threshold
+          float chromaWeight = smoothstep(0.040 / u_sensitivity, 0.080, chroma);
 
-        // 4. Surgical Melanin/Skin Separation (Human skin in Oklab is 52° - 58°)
-        float skinDist = abs(hueDeg - 55.0);
-        float nonSkin = smoothstep(6.0, 14.0, skinDist);
+          // 3. Minimum Lightness
+          float lumWeight = smoothstep(0.07, 0.16, L);
 
-        float mask = hueWeight * chromaWeight * lumWeight * nonSkin;
+          mask = hueWeight * chromaWeight * lumWeight;
 
-        if (mask > 0.005) {
-          // BICYCLE ROYAL BLUE TARGET CHROMATIC VECTOR
-          // Target Angle in Oklab is 263.5° (Classic Bicycle Rider Back Blue)
-          float targetRad = 4.5988;
-          vec2 targetDir = vec2(cos(targetRad), sin(targetRad));
+          // Target: Bicycle Rider Back RED (Centroid = 27.0°)
+          float targetRad = 0.4712; // radians(27.0°)
+          targetDir = vec2(cos(targetRad), sin(targetRad));
+          targetChroma = max(chroma * 1.15, 0.205);
 
-          // Chroma Mapping: Rich, solid royal blue pigment
-          float targetChroma = max(chroma * 1.12, 0.185);
+          // Natural specular highlight preservation
+          float highlightSheen = smoothstep(0.65, 0.94, L);
+          targetChroma = mix(targetChroma, targetChroma * 0.40, highlightSheen);
+          targetL = min(L * 1.16, 0.92);
+        } else {
+          // ============================================================
+          // MODE 1: PHYSICAL RED CARD IN HAND (SHOWS BLUE -> TURNS RED)
+          // ============================================================
+          // 1. Detect Bicycle Red Ink (Centroid = 27.0°)
+          float hueDiff = abs(hueDeg - 27.0);
+          if (hueDiff > 180.0) hueDiff = 360.0 - hueDiff;
+          float hueWeight = 1.0 - smoothstep(12.0 * u_sensitivity, 24.0 * u_sensitivity, hueDiff);
 
-          // Specular Highlight & Gloss Preservation:
-          // In bright light, glossy plastic reflections are naturally white.
-          // We allow the natural specular sheen to sit on top of the blue ink.
+          // 2. Ink Chroma Threshold
+          float chromaWeight = smoothstep(0.040 / u_sensitivity, 0.082, chroma);
+
+          // 3. Minimum Lightness
+          float lumWeight = smoothstep(0.08, 0.18, L);
+
+          // 4. Skin Protection (Human skin in Oklab is 52° - 58°)
+          float skinDist = abs(hueDeg - 55.0);
+          float nonSkin = smoothstep(6.0, 14.0, skinDist);
+
+          mask = hueWeight * chromaWeight * lumWeight * nonSkin;
+
+          // Target: Bicycle Rider Back BLUE (Centroid = 263.5°)
+          float targetRad = 4.5988; // radians(263.5°)
+          targetDir = vec2(cos(targetRad), sin(targetRad));
+          targetChroma = max(chroma * 1.12, 0.185);
+
           float highlightSheen = smoothstep(0.68, 0.95, L);
           targetChroma = mix(targetChroma, targetChroma * 0.45, highlightSheen);
+          targetL = L * 0.96;
+        }
 
+        if (mask > 0.005) {
           vec2 targetAB = targetDir * targetChroma;
-          float targetL = L * 0.96;
+          vec3 transformedLin = oklab2linear(vec3(targetL, targetAB.x, targetAB.y));
+          vec3 transformedSrgb = linear2srgb(transformedLin);
 
-          // Convert back from Oklab to Linear RGB and sRGB
-          vec3 blueLin = oklab2linear(vec3(targetL, targetAB.x, targetAB.y));
-          vec3 blueSrgb = linear2srgb(blueLin);
-
-          // u_blueAmount: 1.0 = Original Red, 0.0 = Blue Transformed
+          // u_blueAmount: 0.0 = Disguise Active, 1.0 = Revealed Real Color
           float transformAmount = (1.0 - u_blueAmount) * mask;
-          vec3 finalColor = mix(color.rgb, blueSrgb, transformAmount);
+          vec3 finalColor = mix(color.rgb, transformedSrgb, transformAmount);
 
           gl_FragColor = vec4(finalColor, color.a);
           return;
@@ -339,6 +369,7 @@ function initRenderer() {
   uSensitivityLocation = gl.getUniformLocation(shaderProgram, 'u_sensitivity');
   uUvScaleLocation = gl.getUniformLocation(shaderProgram, 'u_uvScale');
   uIsFrontCameraLocation = gl.getUniformLocation(shaderProgram, 'u_isFrontCamera');
+  uCardModeLocation = gl.getUniformLocation(shaderProgram, 'u_cardMode');
 }
 
 function createShaderProgram(gl, vs, fs) {
@@ -484,6 +515,7 @@ function renderLoop() {
     gl.uniform1f(uBlueAmountLocation, currentBlueAmount);
     gl.uniform1f(uSensitivityLocation, settings.colorSensitivity);
     gl.uniform1i(uIsFrontCameraLocation, currentFacingMode === 'user' ? 1 : 0);
+    gl.uniform1i(uCardModeLocation, settings.colorDirection === 'blue_card' ? 0 : 1);
 
     const isPortrait = window.innerHeight > window.innerWidth;
     const vw = videoEl.videoWidth || 1080;

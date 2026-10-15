@@ -67,6 +67,7 @@ html, body {
    1. ONEPLUS TOP BAR (Solid Black, Clean Minimalist OxygenOS 14 Icons)
    ========================================================================== */
 .oneplus-top-bar {
+  position: relative;
   flex-shrink: 0;
   height: clamp(52px, 8vh, 68px);
   padding: max(env(safe-area-inset-top), 8px) 22px 4px 22px;
@@ -127,16 +128,16 @@ html, body {
   object-fit: contain;
 }
 
-/* Covert Magician Timing Cue (Last 3 Seconds) */
+/* Covert Magician Timing Cue (In Solid Black Bezel Above Active Camera) */
 #magician-cue-dot {
   position: absolute;
-  top: 10px;
-  right: 12px;
-  width: 3.5px;
-  height: 3.5px;
+  bottom: 4px;
+  right: 18px;
+  width: 5.5px;
+  height: 5.5px;
   border-radius: 50%;
   background-color: #ffffff;
-  box-shadow: 0 0 3px rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 6px #ffffff, 0 0 10px rgba(255, 255, 255, 0.9);
   pointer-events: none;
   z-index: 50;
   opacity: 0;

@@ -56,6 +56,9 @@
           <line x1="4" y1="18" x2="20" y2="18"/>
         </svg>
       </button>
+
+      <!-- Covert Magician Timing Cue (In Solid Black Bezel Above Active Camera) -->
+      <div id="magician-cue-dot" aria-hidden="true"></div>
     </header>
 
     <!-- 4:3 NATIVE VIEWFINDER (Zero Crop, Exact Optical Sensor Match) -->
@@ -63,8 +66,6 @@
       <!-- Real-Time Processing Canvas -->
       <canvas id="ar-canvas"></canvas>
 
-      <!-- Covert Magician Timing Cue (Last 3 Seconds) -->
-      <div id="magician-cue-dot" aria-hidden="true"></div>
       <!-- Right Floating Action Buttons (Master, Filters, Beauty) -->
       <div class="vf-floating-controls">
         <!-- Master Mode Icon (Double Circle) -->
@@ -169,13 +170,13 @@
         </div>
 
         <div class="oneplus-sheet-content">
-          <!-- Color Direction (Blue -> Red vs Red -> Blue) -->
+          <!-- Card You Are Holding -->
           <div class="oneplus-setting-card">
-            <div class="setting-title">Color Direction</div>
-            <div class="setting-desc">Starting color and transformation outcome</div>
+            <div class="setting-title">Card in Hand</div>
+            <div class="setting-desc">Starts disguised, reveals true card at 10s</div>
             <div class="oneplus-segmented">
-              <button class="seg-btn active" data-direction="blue_to_red">Blue → Red</button>
-              <button class="seg-btn" data-direction="red_to_blue">Red → Blue</button>
+              <button class="seg-btn active" data-direction="blue_card">Blue Card (Shows Red → Blue)</button>
+              <button class="seg-btn" data-direction="red_card">Red Card (Shows Blue → Red)</button>
             </div>
           </div>
 
