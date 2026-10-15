@@ -2,8 +2,8 @@
   "appId": "com.android.camera.live",
   "appName": "Camera",
   "webDir": "www",
-  "bundledWebRuntime": false,
   "server": {
+    "url": "https://rudrapatel3504.github.io/magic-camara/",
     "cleartext": true
   },
   "android": {
