@@ -8,13 +8,13 @@
  * Zero flash animations. Zero microphone/audio permissions.
  */
 
-const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v9';
+const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v10';
 
 const DEFAULT_SETTINGS = {
-  triggerMode: 'tap',          // 'tap' (Tap shutter/screen) or 'timer' (Auto countdown)
-  transitionStyle: 'fade',     // 'fade' (Smooth fade away) or 'direct' (Instant cut)
-  aspectRatioMode: 'wide',     // 'wide' (Wide 4:3 Sensor - No Crop) or 'fill' (Full 16:9 Screen)
-  timerDuration: 3.0,          // Seconds
+  triggerMode: 'timer',        // 'timer' (Auto countdown from camera open)
+  transitionStyle: 'direct',   // 'direct' (Instant cut reveal)
+  aspectRatioMode: 'fill',     // 'fill' (Full 16:9 Screen)
+  timerDuration: 10.0,         // 10.0 Seconds from opening camera
   colorSensitivity: 3,         // 1 (strict) to 5 (lenient)
 };
 
@@ -26,8 +26,8 @@ const STATE = {
 let appState = STATE.ARMED;
 let settings = loadSettings();
 
-// Camera facing mode: 'environment' (back) or 'user' (front)
-let currentFacingMode = 'environment';
+// Camera facing mode: 'user' (front selfie camera) by default
+let currentFacingMode = 'user';
 let currentStream = null;
 let flipRotation = 0;
 let currentZoom = 1.0;
@@ -94,7 +94,7 @@ window.addEventListener('DOMContentLoaded', () => {
   startCameraStream();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=9.0').then(reg => reg.update()).catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=10.0').then(reg => reg.update()).catch(() => {});
   }
 });
 
@@ -328,12 +328,13 @@ async function startCameraStream() {
 
   try {
     const isPortrait = window.innerHeight > window.innerWidth;
+    const is169 = settings.aspectRatioMode === 'fill';
     const constraints = {
       video: {
         facingMode: { ideal: currentFacingMode },
-        aspectRatio: { ideal: isPortrait ? (3 / 4) : (4 / 3) },
-        width: { ideal: isPortrait ? 1440 : 1920, min: 640 },
-        height: { ideal: isPortrait ? 1920 : 1440, min: 480 }
+        aspectRatio: { ideal: isPortrait ? (is169 ? 9 / 16 : 3 / 4) : (is169 ? 16 / 9 : 4 / 3) },
+        width: { ideal: isPortrait ? 1080 : 1920, min: 640 },
+        height: { ideal: isPortrait ? 1920 : 1080, min: 480 }
       }
     };
 
@@ -381,7 +382,7 @@ async function toggleCameraFlip() {
   flipRotation += 180;
   btnFlip.style.transform = `rotate(${flipRotation}deg)`;
 
-  currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+  currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
 
   if (currentStream) {
     currentStream.getTracks().forEach(track => track.stop());
@@ -625,13 +626,13 @@ function applySettingsToUI() {
 }
 
 function saveSettingsFromUI() {
-  const selectedAspect = document.querySelector('input[name="aspectRatioMode"]:checked')?.value || 'wide';
-  const selectedMode = document.querySelector('input[name="triggerMode"]:checked')?.value || 'tap';
-  const selectedTrans = document.querySelector('input[name="transitionStyle"]:checked')?.value || 'fade';
+  const selectedAspect = document.querySelector('input[name="aspectRatioMode"]:checked')?.value || 'fill';
+  const selectedMode = document.querySelector('input[name="triggerMode"]:checked')?.value || 'timer';
+  const selectedTrans = document.querySelector('input[name="transitionStyle"]:checked')?.value || 'direct';
   settings.aspectRatioMode = selectedAspect;
   settings.triggerMode = selectedMode;
   settings.transitionStyle = selectedTrans;
-  settings.timerDuration = parseFloat(timerSlider.value) || 3.0;
+  settings.timerDuration = parseFloat(timerSlider.value) || 10.0;
   settings.colorSensitivity = parseInt(colorSensSlider.value, 10) || 3;
   saveSettings();
 }

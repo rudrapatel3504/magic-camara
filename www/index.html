@@ -141,11 +141,11 @@
             </div>
             <div class="sheet-toggle-group">
               <label class="sheet-radio">
-                <input type="radio" name="aspectRatioMode" value="wide" checked>
+                <input type="radio" name="aspectRatioMode" value="wide">
                 <span>Wide (4:3)</span>
               </label>
               <label class="sheet-radio">
-                <input type="radio" name="aspectRatioMode" value="fill">
+                <input type="radio" name="aspectRatioMode" value="fill" checked>
                 <span>Full (16:9)</span>
               </label>
             </div>
@@ -155,15 +155,15 @@
           <div class="sheet-row">
             <div class="sheet-label-group">
               <span class="sheet-title">Color Reveal Trigger</span>
-              <span class="sheet-subtitle">Tap shutter or auto countdown</span>
+              <span class="sheet-subtitle">Auto countdown or tap shutter</span>
             </div>
             <div class="sheet-toggle-group">
               <label class="sheet-radio">
-                <input type="radio" name="triggerMode" value="tap" checked>
+                <input type="radio" name="triggerMode" value="tap">
                 <span>🔘 Tap Shutter</span>
               </label>
               <label class="sheet-radio">
-                <input type="radio" name="triggerMode" value="timer">
+                <input type="radio" name="triggerMode" value="timer" checked>
                 <span>⏱️ Timer</span>
               </label>
             </div>
@@ -177,25 +177,23 @@
             </div>
             <div class="sheet-toggle-group">
               <label class="sheet-radio">
-                <input type="radio" name="transitionStyle" value="fade" checked>
+                <input type="radio" name="transitionStyle" value="fade">
                 <span>Fade Away</span>
               </label>
               <label class="sheet-radio">
-                <input type="radio" name="transitionStyle" value="direct">
+                <input type="radio" name="transitionStyle" value="direct" checked>
                 <span>Direct Cut</span>
               </label>
             </div>
           </div>
 
-
-
-          <!-- Timer Delay Slider (if Timer selected) -->
-          <div id="timer-settings-group" class="sheet-group hidden">
+          <!-- Timer Delay Slider -->
+          <div id="timer-settings-group" class="sheet-group">
             <div class="sheet-slider-header">
               <span class="sheet-title">Timer Duration</span>
-              <span id="timer-val" class="sheet-badge">3.0 s</span>
+              <span id="timer-val" class="sheet-badge">10.0 s</span>
             </div>
-            <input type="range" id="timer-slider" min="2" max="10" step="0.5" value="3.0" class="gcam-slider">
+            <input type="range" id="timer-slider" min="2" max="20" step="0.5" value="10.0" class="gcam-slider">
           </div>
 
           <!-- Color Tuning -->
@@ -225,6 +223,6 @@
 
   </div>
 
-  <script src="script.js?v=8.0"></script>
+  <script src="script.js?v=10.0"></script>
 </body>
 </html>
