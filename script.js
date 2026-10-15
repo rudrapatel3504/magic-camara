@@ -1,21 +1,21 @@
 /**
- * MAGIC CAMERA PWA - PURE REAL-TIME COLOR TRANSPOSITION
+ * GOOGLE CAMERA (GCAM) PWA - REAL-TIME CARD TRANSPOSITION
  * ============================================================================
- * Completely normal camera feed. Zero floating objects.
- * Any RED card sliding into frame appears BLUE in real-time.
- * Finger SNAP instantly reverts the color to RED!
+ * Disguised 100% as the native Google Pixel Camera app.
+ * Red Playing Cards seamlessly appear Bicycle Blue in real-time.
+ * Finger SNAP instantly reverts card to Red!
+ * Shutter Button takes a "photo" and silently re-arms the trick.
  */
 
-const SETTINGS_STORAGE_KEY = 'magic_camera_settings_v3';
+const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v4';
 
 const DEFAULT_SETTINGS = {
   triggerMode: 'audio',       // 'audio' (Finger snap) or 'timer' (Auto countdown)
-  timerDuration: 3.0,         // Seconds (2 to 10)
-  snapSensitivity: 70,        // 30 to 95 (higher = easier to trigger)
+  timerDuration: 3.0,         // Seconds
+  snapSensitivity: 70,        // 30 to 95
   colorSensitivity: 3,        // 1 (strict) to 5 (lenient)
 };
 
-// Application State
 const STATE = {
   ARMED: 'armed',             // Red turns to Blue
   REVEALED: 'revealed'        // Red color restored
@@ -27,21 +27,20 @@ let settings = loadSettings();
 // DOM Elements
 const videoEl = document.getElementById('camera-feed');
 const arCanvas = document.getElementById('ar-canvas');
-const revealFlash = document.getElementById('reveal-flash');
-const secretZone = document.getElementById('secret-zone');
-const gearBtn = document.getElementById('gear-btn');
-const rearmOverlay = document.getElementById('rearm-overlay');
+const shutterFlash = document.getElementById('shutter-flash');
+const focusReticle = document.getElementById('focus-reticle');
+const cameraStarter = document.getElementById('camera-tap-starter');
 
-// Modals
-const startOverlay = document.getElementById('start-overlay');
-const btnStart = document.getElementById('btn-start');
-const permError = document.getElementById('perm-error');
-const settingsModal = document.getElementById('settings-modal');
-const btnCloseSettingsX = document.getElementById('btn-close-settings-x');
-const btnSaveSettings = document.getElementById('btn-save-settings');
-const btnRearmTrick = document.getElementById('btn-rearm-trick');
+// GCam Buttons
+const shutterBtn = document.getElementById('shutter-btn');
+const btnSettings = document.getElementById('btn-settings');
+const btnDrawer = document.getElementById('btn-gcam-drawer');
+const btnCloseSheet = document.getElementById('btn-close-sheet');
+const btnSaveSheet = document.getElementById('btn-save-sheet');
+const settingsSheet = document.getElementById('gcam-settings-modal');
+const zoomBtns = document.querySelectorAll('.zoom-btn');
 
-// Settings Controls
+// Settings Elements
 const radioPills = document.querySelectorAll('input[name="triggerMode"]');
 const timerSettingsGroup = document.getElementById('timer-settings-group');
 const audioSettingsGroup = document.getElementById('audio-settings-group');
@@ -54,7 +53,7 @@ const micThresholdMark = document.getElementById('mic-threshold-mark');
 const colorSensSlider = document.getElementById('color-sens-slider');
 const colorSensVal = document.getElementById('color-sens-val');
 
-// Audio Processing Variables
+// Audio Variables
 let audioContext = null;
 let analyserNode = null;
 let micSource = null;
@@ -62,7 +61,7 @@ let micDataArray = null;
 let recentAverageVolume = 0;
 let lastSnapTime = 0;
 
-// WebGL Engine Variables
+// WebGL Variables
 let gl = null;
 let shaderProgram = null;
 let videoTexture = null;
@@ -73,64 +72,49 @@ let uSensitivityLocation = null;
 let uVideoAspectLocation = null;
 let uScreenAspectLocation = null;
 let isWebGLSupported = true;
+let isCameraRunning = false;
 
-// 2D Canvas Fallback Context
+// 2D Fallback
 let ctx2d = null;
-
-// Timers
 let armedStartTime = 0;
-let gearFadeTimer = null;
 
 // ============================================================================
 // 1. INITIALIZATION & LIFECYCLE
 // ============================================================================
 window.addEventListener('DOMContentLoaded', () => {
-  initUIListeners();
+  initGCamUI();
   applySettingsToUI();
   initRenderer();
   handleResize();
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', handleResize);
 
-  resetGearFade();
+  // Try immediate auto-start
+  startCameraStream();
 
-  // Register fresh service worker with cache bust
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=3.0').then(reg => {
-      reg.update();
-    }).catch(err => {
-      console.warn('SW registration skipped:', err);
-    });
+    navigator.serviceWorker.register('sw.js?v=4.0').then(reg => reg.update()).catch(() => {});
   }
 });
 
 function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (raw) {
-      return Object.assign({}, DEFAULT_SETTINGS, JSON.parse(raw));
-    }
-  } catch (e) {
-    console.warn('Settings parse failed:', e);
-  }
+    if (raw) return Object.assign({}, DEFAULT_SETTINGS, JSON.parse(raw));
+  } catch (e) {}
   return Object.assign({}, DEFAULT_SETTINGS);
 }
 
 function saveSettings() {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  } catch (e) {
-    console.warn('Could not save settings:', e);
-  }
+  } catch (e) {}
 }
 
 function handleResize() {
   const dpr = window.devicePixelRatio || 1;
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-
-  arCanvas.width = w * dpr;
-  arCanvas.height = h * dpr;
+  arCanvas.width = window.innerWidth * dpr;
+  arCanvas.height = window.innerHeight * dpr;
 
   if (gl) {
     gl.viewport(0, 0, arCanvas.width, arCanvas.height);
@@ -138,7 +122,7 @@ function handleResize() {
 }
 
 // ============================================================================
-// 2. WEBGL REAL-TIME COLOR TRANSPOSITION SHADER
+// 2. ADVANCED CHROMATIC SHADER (EXACT BICYCLE RIDER BACK BLUE)
 // ============================================================================
 function initRenderer() {
   try {
@@ -149,7 +133,6 @@ function initRenderer() {
   }
 
   if (!gl) {
-    console.warn('WebGL unavailable, using 2D canvas');
     isWebGLSupported = false;
     ctx2d = arCanvas.getContext('2d');
     return;
@@ -164,8 +147,6 @@ function initRenderer() {
 
     void main() {
       gl_Position = vec4(a_position, 0.0, 1.0);
-      
-      // Maintain object-fit: cover aspect ratio
       vec2 coord = a_texCoord;
       if (u_screenAspect > u_videoAspect) {
         float scale = u_videoAspect / u_screenAspect;
@@ -174,11 +155,12 @@ function initRenderer() {
         float scale = u_screenAspect / u_videoAspect;
         coord.x = (coord.x - 0.5) * scale + 0.5;
       }
-      
       v_texCoord = coord;
     }
   `;
 
+  // Fragment Shader: Converts red ink into authentic Bicycle Rider Back Blue (#001b54 / #0a2568)
+  // Perfectly preserves white angels, scrollwork, and rejects human skin!
   const fsSource = `
     precision mediump float;
     varying vec2 v_texCoord;
@@ -190,7 +172,6 @@ function initRenderer() {
       vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
       vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
       vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-
       float d = q.x - min(q.w, q.y);
       float e = 1.0e-10;
       return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
@@ -204,35 +185,39 @@ function initRenderer() {
 
       vec4 color = texture2D(u_image, v_texCoord);
 
-      // Only shift color when ARMED (before reveal)
       if (!u_revealed) {
         vec3 hsv = rgb2hsv(color.rgb);
         float h = hsv.x * 360.0;
         float s = hsv.y;
         float v = hsv.z;
 
-        // Dynamic sensitivity tuning
-        float satThreshold = 0.44 - (u_sensitivity * 0.04);
-        float diffThreshold = 0.13 - (u_sensitivity * 0.02);
+        // 1. Strict Skin Exclusion:
+        // In human skin, green is always substantial (G/R is 0.58 to 0.85).
+        // In red card ink, G/R is very low (0.15 to 0.45).
+        float greenRatio = color.g / max(0.01, color.r);
+        bool isSkin = (greenRatio > 0.56) || (h >= 18.0 && h <= 45.0 && s < 0.55);
 
-        // Strict Red Playing Card criteria:
-        // Excludes human skin (skin hue is 18°-45°, sat is 0.15-0.38)
-        bool isRedHue = (h >= 342.0 || h <= 18.0);
-        bool hasHighSat = (s >= satThreshold);
-        bool redDominates = (color.r > color.g * 1.35) && 
-                            (color.r > color.b * 1.35) && 
-                            ((color.r - max(color.g, color.b)) > diffThreshold);
+        // 2. Red Card Detection:
+        bool isRedHue = (h >= 342.0 || h <= 17.0);
+        float minSat = 0.40 - (u_sensitivity * 0.03);
+        bool hasCardSat = (s >= minSat);
+        bool redDominates = (color.r > color.g * 1.35) && (color.r > color.b * 1.35);
 
-        if (isRedHue && hasHighSat && redDominates && v > 0.12) {
-          // Transform Red into Deep Royal / Sapphire Blue
-          // Preserves card pattern, shading, and texture details
-          float r = color.r;
-          float g = color.g;
-          float b = color.b;
+        if (!isSkin && isRedHue && hasCardSat && redDominates && v > 0.12) {
+          // Authentic Bicycle Rider Back Navy Blue target
+          // Ink: Rich deep navy (#051947 to #0b2975)
+          float lum = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
 
-          color.r = r * 0.06;
-          color.g = g * 0.35 + (r * 0.08);
-          color.b = clamp(r * 1.10 + b * 0.20, 0.0, 1.0);
+          // Preserve white pattern detail by scaling with lightness
+          vec3 navyBlue = vec3(
+            color.r * 0.02,
+            color.g * 0.22,
+            max(color.r * 0.85, 0.45)
+          );
+
+          // Smooth blending
+          float blend = clamp((color.r - max(color.g, color.b) - 0.10) / 0.20, 0.0, 1.0);
+          color.rgb = mix(color.rgb, navyBlue, blend);
         }
       }
 
@@ -252,23 +237,15 @@ function initRenderer() {
   positionBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -1.0, -1.0,
-     1.0, -1.0,
-    -1.0,  1.0,
-    -1.0,  1.0,
-     1.0, -1.0,
-     1.0,  1.0,
+    -1.0, -1.0,  1.0, -1.0, -1.0,  1.0,
+    -1.0,  1.0,  1.0, -1.0,  1.0,  1.0,
   ]), gl.STATIC_DRAW);
 
   texCoordBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    0.0, 1.0,
-    1.0, 1.0,
-    0.0, 0.0,
-    0.0, 0.0,
-    1.0, 1.0,
-    1.0, 0.0,
+    0.0, 1.0,  1.0, 1.0,  0.0, 0.0,
+    0.0, 0.0,  1.0, 1.0,  1.0, 0.0,
   ]), gl.STATIC_DRAW);
 
   videoTexture = gl.createTexture();
@@ -284,70 +261,33 @@ function initRenderer() {
   uScreenAspectLocation = gl.getUniformLocation(shaderProgram, 'u_screenAspect');
 }
 
-function createShaderProgram(gl, vsSource, fsSource) {
-  const vs = compileShader(gl, gl.VERTEX_SHADER, vsSource);
-  const fs = compileShader(gl, gl.FRAGMENT_SHADER, fsSource);
-  if (!vs || !fs) return null;
-
-  const prog = gl.createProgram();
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    console.error('Shader link error:', gl.getProgramInfoLog(prog));
-    return null;
-  }
-  return prog;
-}
-
-function compileShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error('Shader compile error:', gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    return null;
-  }
-  return shader;
+function createShaderProgram(gl, vs, fs) {
+  const p = gl.createProgram();
+  const v = gl.createShader(gl.VERTEX_SHADER);
+  const f = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(v, vs); gl.compileShader(v);
+  gl.shaderSource(f, fs); gl.compileShader(f);
+  gl.attachShader(p, v); gl.attachShader(p, f);
+  gl.linkProgram(p);
+  return p;
 }
 
 // ============================================================================
-// 3. CAMERA & MICROPHONE ACCESS
+// 3. CAMERA & MICROPHONE STREAM
 // ============================================================================
-btnStart.addEventListener('click', async () => {
-  btnStart.disabled = true;
-  btnStart.textContent = 'Opening Camera...';
-  permError.classList.add('hidden');
+async function startCameraStream() {
+  if (isCameraRunning) return;
 
   try {
-    const constraints = {
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: true
-    };
-
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-    } catch (combinedErr) {
-      console.warn('Fallback to separate camera/mic request');
-      stream = await navigator.mediaDevices.getUserMedia({
+    }).catch(async () => {
+      // Audio might fail on some browsers without tap; get video first
+      return await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' } }
       });
-      try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStream.getAudioTracks().forEach(track => stream.addTrack(track));
-      } catch (micErr) {
-        settings.triggerMode = 'timer';
-        saveSettings();
-        applySettingsToUI();
-      }
-    }
+    });
 
     videoEl.srcObject = stream;
     await videoEl.play();
@@ -356,30 +296,23 @@ btnStart.addEventListener('click', async () => {
       setupAudioAnalyzer(stream);
     }
 
-    startOverlay.classList.add('hidden');
+    cameraStarter.classList.add('hidden');
+    isCameraRunning = true;
     appState = STATE.ARMED;
     armedStartTime = performance.now();
 
     requestAnimationFrame(renderLoop);
-
   } catch (err) {
-    console.error('Camera startup error:', err);
-    permError.textContent = `Error: ${err.message || 'Camera permission denied.'}`;
-    permError.classList.remove('hidden');
-    btnStart.disabled = false;
-    btnStart.textContent = 'Retry Opening Camera';
+    console.log('Awaiting user tap to start camera');
   }
-});
+}
 
-// ============================================================================
-// 4. AUDIO SNAP DETECTION ENGINE (WEB AUDIO API)
-// ============================================================================
 function setupAudioAnalyzer(stream) {
   try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
 
-    audioContext = new AudioContextClass();
+    audioContext = new AC();
     micSource = audioContext.createMediaStreamSource(stream);
 
     const highpass = audioContext.createBiquadFilter();
@@ -394,9 +327,7 @@ function setupAudioAnalyzer(stream) {
     highpass.connect(analyserNode);
 
     micDataArray = new Uint8Array(analyserNode.frequencyBinCount);
-  } catch (err) {
-    console.warn('Web Audio setup error:', err);
-  }
+  } catch (e) {}
 }
 
 function checkAudioSnapTrigger() {
@@ -405,14 +336,11 @@ function checkAudioSnapTrigger() {
   analyserNode.getByteFrequencyData(micDataArray);
 
   let sum = 0;
-  for (let i = 0; i < micDataArray.length; i++) {
-    sum += micDataArray[i];
-  }
+  for (let i = 0; i < micDataArray.length; i++) sum += micDataArray[i];
   const currentLevel = sum / micDataArray.length;
 
-  if (!settingsModal.classList.contains('hidden') && micMeterFill) {
-    const percent = Math.min(100, Math.round((currentLevel / 120) * 100));
-    micMeterFill.style.width = `${percent}%`;
+  if (!settingsSheet.classList.contains('hidden') && micMeterFill) {
+    micMeterFill.style.width = `${Math.min(100, Math.round((currentLevel / 120) * 100))}%`;
   }
 
   recentAverageVolume = (recentAverageVolume * 0.92) + (currentLevel * 0.08);
@@ -430,7 +358,7 @@ function checkAudioSnapTrigger() {
 }
 
 // ============================================================================
-// 5. 60FPS REAL-TIME LOOP
+// 4. RENDERING LOOP
 // ============================================================================
 function renderLoop() {
   requestAnimationFrame(renderLoop);
@@ -441,138 +369,122 @@ function renderLoop() {
 
   const now = performance.now();
 
-  // Timer trigger handler
   if (settings.triggerMode === 'timer' && appState === STATE.ARMED) {
     if (!armedStartTime) armedStartTime = now;
-    const elapsed = (now - armedStartTime) / 1000;
-    if (elapsed >= settings.timerDuration) {
-      triggerInstantReveal(`⏱️ Timer Finished (${settings.timerDuration}s)`);
+    if ((now - armedStartTime) / 1000 >= settings.timerDuration) {
+      triggerInstantReveal('⏱️ Auto Timer Expired');
     }
   }
 
   if (isWebGLSupported && gl && shaderProgram) {
-    renderWebGLFrame();
+    gl.useProgram(shaderProgram);
+    gl.bindTexture(gl.TEXTURE_2D, videoTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, videoEl);
+
+    gl.uniform1i(uRevealedLocation, appState === STATE.REVEALED ? 1 : 0);
+    gl.uniform1f(uSensitivityLocation, settings.colorSensitivity);
+
+    const videoAspect = (videoEl.videoWidth || 1280) / (videoEl.videoHeight || 720);
+    const screenAspect = window.innerWidth / window.innerHeight;
+    gl.uniform1f(uVideoAspectLocation, videoAspect);
+    gl.uniform1f(uScreenAspectLocation, screenAspect);
+
+    const aPos = gl.getAttribLocation(shaderProgram, 'a_position');
+    gl.enableVertexAttribArray(aPos);
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    const aTex = gl.getAttribLocation(shaderProgram, 'a_texCoord');
+    gl.enableVertexAttribArray(aTex);
+    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    gl.vertexAttribPointer(aTex, 2, gl.FLOAT, false, 0, 0);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
   } else if (ctx2d) {
-    render2DFallbackFrame();
-  }
-}
-
-function renderWebGLFrame() {
-  gl.useProgram(shaderProgram);
-
-  gl.bindTexture(gl.TEXTURE_2D, videoTexture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, videoEl);
-
-  const isRevealed = (appState === STATE.REVEALED);
-  gl.uniform1i(uRevealedLocation, isRevealed ? 1 : 0);
-  gl.uniform1f(uSensitivityLocation, settings.colorSensitivity);
-
-  const videoAspect = (videoEl.videoWidth || 1280) / (videoEl.videoHeight || 720);
-  const screenAspect = window.innerWidth / window.innerHeight;
-  gl.uniform1f(uVideoAspectLocation, videoAspect);
-  gl.uniform1f(uScreenAspectLocation, screenAspect);
-
-  const aPositionLocation = gl.getAttribLocation(shaderProgram, 'a_position');
-  gl.enableVertexAttribArray(aPositionLocation);
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-  gl.vertexAttribPointer(aPositionLocation, 2, gl.FLOAT, false, 0, 0);
-
-  const aTexCoordLocation = gl.getAttribLocation(shaderProgram, 'a_texCoord');
-  gl.enableVertexAttribArray(aTexCoordLocation);
-  gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-  gl.vertexAttribPointer(aTexCoordLocation, 2, gl.FLOAT, false, 0, 0);
-
-  gl.drawArrays(gl.TRIANGLES, 0, 6);
-}
-
-function render2DFallbackFrame() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  ctx2d.drawImage(videoEl, 0, 0, w, h);
-
-  // 2D pixel color shift fallback
-  if (appState === STATE.ARMED) {
-    const frame = ctx2d.getImageData(0, 0, w, h);
-    const d = frame.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const r = d[i];
-      const g = d[i+1];
-      const b = d[i+2];
-      if (r > 110 && r > g * 1.4 && r > b * 1.4 && (r - Math.max(g, b)) > 30) {
-        d[i] = r * 0.08;
-        d[i+1] = g * 0.35 + r * 0.08;
-        d[i+2] = Math.min(255, r * 1.1 + b * 0.2);
-      }
-    }
-    ctx2d.putImageData(frame, 0, 0);
+    ctx2d.drawImage(videoEl, 0, 0, window.innerWidth, window.innerHeight);
   }
 }
 
 // ============================================================================
-// 6. INSTANT REVEAL & SILENT RE-ARM
+// 5. REVEAL & SHUTTER ACTIONS
 // ============================================================================
 function triggerInstantReveal(reason) {
   if (appState === STATE.REVEALED) return;
 
-  console.log(`✨ COLOR REVERTED TO RED: ${reason}`);
   appState = STATE.REVEALED;
 
-  // Optical micro-flash
-  revealFlash.classList.add('active');
-  setTimeout(() => {
-    revealFlash.classList.remove('active');
-  }, 65);
+  // Optical flash
+  shutterFlash.classList.add('active');
+  setTimeout(() => shutterFlash.classList.remove('active'), 65);
 
-  rearmOverlay.classList.remove('hidden');
+  if (navigator.vibrate) navigator.vibrate(40);
 }
 
-function rearmTrick() {
+function handleShutterClick() {
+  // Play subtle camera shutter feedback
+  shutterFlash.classList.add('active');
+  setTimeout(() => shutterFlash.classList.remove('active'), 80);
+
+  if (navigator.vibrate) navigator.vibrate(30);
+
+  // Silently re-arm the trick
   appState = STATE.ARMED;
   armedStartTime = performance.now();
-  rearmOverlay.classList.add('hidden');
 }
 
 // ============================================================================
-// 7. HIDDEN SETTINGS & CONTROLS
+// 6. GCAM UI INTERACTIONS
 // ============================================================================
-function initUIListeners() {
-  let secretPressTimer = null;
-
-  secretZone.addEventListener('touchstart', () => {
-    secretPressTimer = setTimeout(() => {
-      openSettingsModal();
-      if (navigator.vibrate) navigator.vibrate(50);
-    }, 900);
-  }, { passive: true });
-
-  secretZone.addEventListener('touchend', () => clearTimeout(secretPressTimer));
-  secretZone.addEventListener('touchcancel', () => clearTimeout(secretPressTimer));
-  secretZone.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    openSettingsModal();
+function initGCamUI() {
+  cameraStarter.addEventListener('click', () => {
+    startCameraStream();
   });
 
-  gearBtn.addEventListener('click', openSettingsModal);
+  // Big Shutter Button
+  shutterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    handleShutterClick();
+  });
 
-  document.addEventListener('pointerdown', (e) => {
-    if (e.clientX > window.innerWidth - 80 && e.clientY < 80) {
-      resetGearFade();
+  // Tap on viewfinder for focus reticle
+  arCanvas.addEventListener('click', (e) => {
+    if (!isCameraRunning) {
+      startCameraStream();
+      return;
     }
-    if (appState === STATE.REVEALED && !e.target.closest('#settings-modal')) {
-      rearmTrick();
-    }
+    // Show focus ring
+    focusReticle.style.left = `${e.clientX}px`;
+    focusReticle.style.top = `${e.clientY}px`;
+    focusReticle.classList.remove('hidden');
+    focusReticle.classList.add('active');
+    setTimeout(() => {
+      focusReticle.classList.remove('active');
+      setTimeout(() => focusReticle.classList.add('hidden'), 200);
+    }, 600);
   });
 
-  rearmOverlay.addEventListener('click', rearmTrick);
-  btnCloseSettingsX.addEventListener('click', closeSettingsModal);
-  btnSaveSettings.addEventListener('click', saveAndApplySettings);
-  btnRearmTrick.addEventListener('click', () => {
-    rearmTrick();
-    closeSettingsModal();
+  // Settings Sheet Toggle
+  btnSettings.addEventListener('click', () => settingsSheet.classList.remove('hidden'));
+  btnDrawer.addEventListener('click', () => settingsSheet.classList.remove('hidden'));
+  btnCloseSheet.addEventListener('click', () => settingsSheet.classList.add('hidden'));
+  btnSaveSheet.addEventListener('click', () => {
+    saveSettingsFromUI();
+    settingsSheet.classList.add('hidden');
   });
 
-  radioPills.forEach(radio => {
-    radio.addEventListener('change', (e) => updateTriggerModeUI(e.target.value));
+  // Zoom pills
+  zoomBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      zoomBtns.forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+    });
+  });
+
+  // Settings Controls
+  radioPills.forEach(r => {
+    r.addEventListener('change', (e) => {
+      updateTriggerModeUI(e.target.value);
+    });
   });
 
   timerSlider.addEventListener('input', (e) => {
@@ -582,9 +494,7 @@ function initUIListeners() {
   snapSlider.addEventListener('input', (e) => {
     const val = parseInt(e.target.value, 10);
     snapVal.textContent = val > 80 ? `High (${val})` : (val < 50 ? `Low (${val})` : `Medium (${val})`);
-    if (micThresholdMark) {
-      micThresholdMark.style.left = `${100 - val}%`;
-    }
+    if (micThresholdMark) micThresholdMark.style.left = `${100 - val}%`;
   });
 
   colorSensSlider.addEventListener('input', (e) => {
@@ -592,24 +502,6 @@ function initUIListeners() {
     const labels = ['Strict', 'Medium-Strict', 'Balanced', 'Medium-Lenient', 'Lenient'];
     colorSensVal.textContent = labels[v - 1] || 'Balanced';
   });
-}
-
-function resetGearFade() {
-  gearBtn.classList.remove('fade-out');
-  clearTimeout(gearFadeTimer);
-  gearFadeTimer = setTimeout(() => {
-    gearBtn.classList.add('fade-out');
-  }, 3000);
-}
-
-function openSettingsModal() {
-  applySettingsToUI();
-  settingsModal.classList.remove('hidden');
-}
-
-function closeSettingsModal() {
-  settingsModal.classList.add('hidden');
-  resetGearFade();
 }
 
 function updateTriggerModeUI(mode) {
@@ -623,9 +515,7 @@ function updateTriggerModeUI(mode) {
 }
 
 function applySettingsToUI() {
-  radioPills.forEach(r => {
-    r.checked = (r.value === settings.triggerMode);
-  });
+  radioPills.forEach(r => r.checked = (r.value === settings.triggerMode));
   updateTriggerModeUI(settings.triggerMode);
 
   timerSlider.value = settings.timerDuration;
@@ -634,22 +524,18 @@ function applySettingsToUI() {
   snapSlider.value = settings.snapSensitivity;
   const sVal = settings.snapSensitivity;
   snapVal.textContent = sVal > 80 ? `High (${sVal})` : (sVal < 50 ? `Low (${sVal})` : `Medium (${sVal})`);
-  if (micThresholdMark) {
-    micThresholdMark.style.left = `${100 - sVal}%`;
-  }
+  if (micThresholdMark) micThresholdMark.style.left = `${100 - sVal}%`;
 
   colorSensSlider.value = settings.colorSensitivity;
   const labels = ['Strict', 'Medium-Strict', 'Balanced', 'Medium-Lenient', 'Lenient'];
   colorSensVal.textContent = labels[settings.colorSensitivity - 1] || 'Balanced';
 }
 
-function saveAndApplySettings() {
+function saveSettingsFromUI() {
   const selectedMode = document.querySelector('input[name="triggerMode"]:checked')?.value || 'audio';
   settings.triggerMode = selectedMode;
   settings.timerDuration = parseFloat(timerSlider.value) || 3.0;
   settings.snapSensitivity = parseInt(snapSlider.value, 10) || 70;
   settings.colorSensitivity = parseInt(colorSensSlider.value, 10) || 3;
-
   saveSettings();
-  closeSettingsModal();
 }

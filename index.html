@@ -3,135 +3,216 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>HD Camera</title>
+  <title>Camera</title>
   
-  <!-- Cache Busting & PWA Meta Tags -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 
-  <meta name="theme-color" content="#0a0a0f">
+  <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="HD Camera">
-  <link rel="manifest" href="manifest.json?v=3.0">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Camera">
+  <link rel="manifest" href="manifest.json?v=4.0">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
-  <link rel="stylesheet" href="style.css?v=3.0">
+  <link rel="stylesheet" href="style.css?v=4.0">
 
-  <!-- Immediate Cache Purge Script -->
   <script>
     if ('caches' in window) {
       caches.keys().then(function(names) {
         for (let name of names) {
-          if (name !== 'magic-camera-v3') caches.delete(name);
+          if (name !== 'magic-camera-v4') caches.delete(name);
         }
       });
     }
   </script>
 </head>
-<body>
-  <!-- Fullscreen Live Viewfinder -->
-  <div id="app-container">
+<body class="gcam-body">
+  <div id="gcam-app">
+    
+    <!-- Hidden Raw Video Element -->
     <video id="camera-feed" playsinline autoplay muted></video>
+
+    <!-- Fullscreen Real-Time Canvas -->
     <canvas id="ar-canvas"></canvas>
 
-    <!-- Dispatched Visual Flash on Reveal Moment -->
-    <div id="reveal-flash" class="reveal-flash"></div>
+    <!-- Tap to Focus Reticle -->
+    <div id="focus-reticle" class="focus-ring hidden"></div>
 
-    <!-- Secret Long-press Zone (Bottom-Left Corner) -->
-    <div id="secret-zone" class="secret-tap-zone" aria-label="Secret Trigger Zone"></div>
+    <!-- Shutter Flash -->
+    <div id="shutter-flash" class="camera-flash"></div>
 
-    <!-- Secret Gear Icon (Top-Right Corner: auto-fades after 3 seconds) -->
-    <button id="gear-btn" class="gear-icon-btn fade-out" aria-label="Settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="3"></circle>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-      </svg>
-    </button>
+    <!-- GCAM TOP BAR -->
+    <header class="gcam-top-bar">
+      <!-- Flash Toggle -->
+      <button class="gcam-icon-btn" id="btn-flash" aria-label="Flash">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+      </button>
 
-    <!-- Quick Tap Reset Hint (Shown only after reveal) -->
-    <div id="rearm-overlay" class="rearm-banner hidden">
-      <span>Color Restored • Tap Screen to Re-arm</span>
-    </div>
+      <!-- Center Settings Drawer Toggle (Pixel Chevron) -->
+      <button class="gcam-pill-btn" id="btn-gcam-drawer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="chevron-down">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
 
-    <!-- Innocent Camera Start Screen -->
-    <div id="start-overlay" class="modal-overlay">
-      <div class="modal-card start-card">
-        <div class="camera-lens-icon">📷</div>
-        <h1>HD Camera</h1>
-        <p class="subtitle">Live Viewfinder</p>
-        <button id="btn-start" class="btn btn-primary">Open Camera</button>
-        <p id="perm-error" class="error-msg hidden"></p>
+      <!-- Settings Cog -->
+      <button class="gcam-icon-btn" id="btn-settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <!-- INNOCENT FIRST-TIME TAP OVERLAY (Disappears immediately on first touch) -->
+    <div id="camera-tap-starter" class="camera-starter-overlay">
+      <div class="starter-lens">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
       </div>
+      <p>Tap anywhere to start Camera</p>
     </div>
 
-    <!-- Hidden Settings Menu Modal -->
-    <div id="settings-modal" class="modal-overlay hidden">
-      <div class="modal-card settings-card">
-        <div class="settings-header">
-          <h2>Secret Trick Settings</h2>
-          <button id="btn-close-settings-x" class="close-x">&times;</button>
+    <!-- GCAM BOTTOM CONTROLS -->
+    <footer class="gcam-bottom-bar">
+      <!-- Zoom Pills -->
+      <div class="gcam-zoom-row">
+        <div class="zoom-pill-container">
+          <button class="zoom-btn">.6</button>
+          <button class="zoom-btn active">1x</button>
+          <button class="zoom-btn">2x</button>
+        </div>
+      </div>
+
+      <!-- Mode Carousel -->
+      <div class="gcam-modes-carousel">
+        <span class="mode-item">Night Sight</span>
+        <span class="mode-item">Portrait</span>
+        <span class="mode-item active">PHOTO</span>
+        <span class="mode-item">Video</span>
+        <span class="mode-item">Modes</span>
+      </div>
+
+      <!-- Shutter Row -->
+      <div class="gcam-shutter-row">
+        <!-- Gallery Preview -->
+        <button class="gallery-preview-btn" aria-label="Gallery">
+          <div class="gallery-thumb-circle"></div>
+        </button>
+
+        <!-- Big Google Camera Shutter Button (Also Re-arms the trick!) -->
+        <button class="gcam-shutter-btn" id="shutter-btn" aria-label="Take picture">
+          <div class="shutter-outer-ring">
+            <div class="shutter-inner-fill"></div>
+          </div>
+        </button>
+
+        <!-- Camera Switch Flip Button -->
+        <button class="camera-flip-btn" id="btn-flip" aria-label="Switch camera">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 10c0-4.418-3.582-8-8-8s-8 3.582-8 8c0 2.21 1.79 4 4 4h2"></path>
+            <polyline points="7 14 10 14 10 11"></polyline>
+            <path d="M4 14c0 4.418 3.582 8 8 8s8-3.582 8-8c0-2.21-1.79-4-4-4h-2"></path>
+            <polyline points="17 10 14 10 14 13"></polyline>
+          </svg>
+        </button>
+      </div>
+    </footer>
+
+    <!-- AUTHENTIC GOOGLE CAMERA SETTINGS BOTTOM SHEET -->
+    <div id="gcam-settings-modal" class="gcam-sheet-overlay hidden">
+      <div class="gcam-sheet-card">
+        <div class="sheet-drag-handle"></div>
+        <div class="sheet-header">
+          <h2>Camera Settings</h2>
+          <button id="btn-close-sheet" class="sheet-close-btn">&times;</button>
         </div>
 
-        <div class="settings-body">
-          <!-- Trigger Mode -->
-          <div class="form-group">
-            <label class="section-label">Color Reveal Trigger</label>
-            <div class="radio-pill-group">
-              <label class="pill-option">
+        <div class="sheet-body">
+          <!-- Ratio Option -->
+          <div class="sheet-row">
+            <div class="sheet-label-group">
+              <span class="sheet-title">Aspect Ratio</span>
+              <span class="sheet-subtitle">Full sensor (4:3)</span>
+            </div>
+            <span class="sheet-pill-badge">4:3</span>
+          </div>
+
+          <!-- Color Transposition Trigger Mode -->
+          <div class="sheet-row">
+            <div class="sheet-label-group">
+              <span class="sheet-title">Color Reveal Method</span>
+              <span class="sheet-subtitle">Snap trigger or countdown</span>
+            </div>
+            <div class="sheet-toggle-group">
+              <label class="sheet-radio">
                 <input type="radio" name="triggerMode" value="audio" checked>
-                <span class="pill-text">🎙️ Finger Snap (Audio)</span>
+                <span>🎙️ Snap</span>
               </label>
-              <label class="pill-option">
+              <label class="sheet-radio">
                 <input type="radio" name="triggerMode" value="timer">
-                <span class="pill-text">⏱️ Auto Timer</span>
+                <span>⏱️ Timer</span>
               </label>
             </div>
           </div>
 
-          <!-- Timer Duration Slider -->
-          <div id="timer-settings-group" class="form-group hidden">
-            <div class="label-with-value">
-              <label for="timer-slider">Timer Duration</label>
-              <span id="timer-val" class="badge">3.0 s</span>
+          <!-- Timer Duration Slider (if Timer selected) -->
+          <div id="timer-settings-group" class="sheet-group hidden">
+            <div class="sheet-slider-header">
+              <span class="sheet-title">Auto Timer Delay</span>
+              <span id="timer-val" class="sheet-badge">3.0 s</span>
             </div>
-            <input type="range" id="timer-slider" min="2" max="10" step="0.5" value="3.0">
-            <small class="helper-text">Color snaps back to red automatically after this duration.</small>
+            <input type="range" id="timer-slider" min="2" max="10" step="0.5" value="3.0" class="gcam-slider">
           </div>
 
-          <!-- Audio Snap Sensitivity Slider -->
-          <div id="audio-settings-group" class="form-group">
-            <div class="label-with-value">
-              <label for="snap-slider">Snap Sensitivity</label>
-              <span id="snap-val" class="badge">Medium (70)</span>
+          <!-- Audio Snap Sensitivity Slider (if Audio selected) -->
+          <div id="audio-settings-group" class="sheet-group">
+            <div class="sheet-slider-header">
+              <span class="sheet-title">Finger Snap Sensitivity</span>
+              <span id="snap-val" class="sheet-badge">Medium (70)</span>
             </div>
-            <input type="range" id="snap-slider" min="30" max="95" step="1" value="70">
-            <div class="live-mic-meter-container">
-              <span class="meter-label">Live Mic Level:</span>
-              <div class="mic-meter-bar">
-                <div id="mic-meter-fill" class="mic-meter-fill"></div>
-                <div id="mic-threshold-mark" class="mic-threshold-mark"></div>
-              </div>
+            <input type="range" id="snap-slider" min="30" max="95" step="1" value="70" class="gcam-slider">
+            <div class="gcam-meter-bar">
+              <div id="mic-meter-fill" class="gcam-meter-fill"></div>
+              <div id="mic-threshold-mark" class="gcam-threshold-line"></div>
             </div>
-            <small class="helper-text">Snap your fingers to see the level spike past the white marker.</small>
           </div>
 
-          <!-- Color Sensitivity Slider -->
-          <div class="form-group">
-            <div class="label-with-value">
-              <label for="color-sens-slider">Red Color Sensitivity</label>
-              <span id="color-sens-val" class="badge">Balanced</span>
+          <!-- Color Tuning -->
+          <div class="sheet-group">
+            <div class="sheet-slider-header">
+              <span class="sheet-title">Card Detection Tuning</span>
+              <span id="color-sens-val" class="sheet-badge">Balanced</span>
             </div>
-            <input type="range" id="color-sens-slider" min="1" max="5" step="1" value="3">
-            <small class="helper-text">Set higher if room has warm light, lower if background has orange/wood.</small>
+            <input type="range" id="color-sens-slider" min="1" max="5" step="1" value="3" class="gcam-slider">
           </div>
 
-          <!-- Actions -->
-          <div class="actions-row">
-            <button id="btn-rearm-trick" class="btn btn-secondary">⚡ Re-arm Trick</button>
-            <button id="btn-save-settings" class="btn btn-primary">Save &amp; Close</button>
+          <!-- Innocent Google Camera toggles -->
+          <div class="sheet-row">
+            <div class="sheet-label-group">
+              <span class="sheet-title">Shutter Sound</span>
+              <span class="sheet-subtitle">Play sound on photo capture</span>
+            </div>
+            <input type="checkbox" checked class="gcam-switch">
+          </div>
+
+          <div class="sheet-row">
+            <div class="sheet-label-group">
+              <span class="sheet-title">Grid type</span>
+              <span class="sheet-subtitle">Rule of thirds grid</span>
+            </div>
+            <span class="sheet-pill-badge">3 x 3</span>
+          </div>
+
+          <div class="sheet-actions">
+            <button id="btn-save-sheet" class="gcam-primary-btn">Done</button>
           </div>
         </div>
       </div>
@@ -139,6 +220,6 @@
 
   </div>
 
-  <script src="script.js?v=3.0"></script>
+  <script src="script.js?v=4.0"></script>
 </body>
 </html>
