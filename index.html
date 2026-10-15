@@ -3,33 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Magic Camera - Card Transposition</title>
+  <title>HD Camera</title>
   
-  <!-- PWA Meta Tags -->
-  <meta name="description" content="Live AR Magic Trick: Instant Red to Blue Card Transposition">
+  <!-- Cache Busting & PWA Meta Tags -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
   <meta name="theme-color" content="#0a0a0f">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Magic Card">
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/svg+xml" href="blue_card.svg">
+  <meta name="apple-mobile-web-app-title" content="HD Camera">
+  <link rel="manifest" href="manifest.json?v=3.0">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3.0">
+
+  <!-- Immediate Cache Purge Script -->
+  <script>
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (let name of names) {
+          if (name !== 'magic-camera-v3') caches.delete(name);
+        }
+      });
+    }
+  </script>
 </head>
 <body>
-  <!-- Fullscreen Camera & AR Canvas -->
+  <!-- Fullscreen Live Viewfinder -->
   <div id="app-container">
     <video id="camera-feed" playsinline autoplay muted></video>
     <canvas id="ar-canvas"></canvas>
 
-    <!-- Hidden Downscaled Processing Canvas for Fast 60FPS Color Thresholding -->
-    <canvas id="proc-canvas" width="320" height="240" style="display: none;"></canvas>
-
-    <!-- Magician Secret Status Dot (pulsing when card is locked) -->
-    <div id="status-indicator" class="status-dot hidden" title="Tracking status"></div>
-
-    <!-- Optional Visual Flash for Reveal Moment -->
+    <!-- Dispatched Visual Flash on Reveal Moment -->
     <div id="reveal-flash" class="reveal-flash"></div>
 
     <!-- Secret Long-press Zone (Bottom-Left Corner) -->
@@ -43,12 +51,12 @@
       </svg>
     </button>
 
-    <!-- Quick Tap Reset Hint (Magician can tap anywhere when revealed to re-arm) -->
+    <!-- Quick Tap Reset Hint (Shown only after reveal) -->
     <div id="rearm-overlay" class="rearm-banner hidden">
-      <span>Trick Complete • Tap Screen to Re-arm</span>
+      <span>Color Restored • Tap Screen to Re-arm</span>
     </div>
 
-    <!-- Clean Camera Start Screen -->
+    <!-- Innocent Camera Start Screen -->
     <div id="start-overlay" class="modal-overlay">
       <div class="modal-card start-card">
         <div class="camera-lens-icon">📷</div>
@@ -63,14 +71,14 @@
     <div id="settings-modal" class="modal-overlay hidden">
       <div class="modal-card settings-card">
         <div class="settings-header">
-          <h2>Secret Magician Settings</h2>
+          <h2>Secret Trick Settings</h2>
           <button id="btn-close-settings-x" class="close-x">&times;</button>
         </div>
 
         <div class="settings-body">
-          <!-- Trigger Method Selection -->
+          <!-- Trigger Mode -->
           <div class="form-group">
-            <label class="section-label">Reveal Trigger Mode</label>
+            <label class="section-label">Color Reveal Trigger</label>
             <div class="radio-pill-group">
               <label class="pill-option">
                 <input type="radio" name="triggerMode" value="audio" checked>
@@ -83,17 +91,17 @@
             </div>
           </div>
 
-          <!-- Timer Duration Slider (Visible when Timer selected) -->
+          <!-- Timer Duration Slider -->
           <div id="timer-settings-group" class="form-group hidden">
             <div class="label-with-value">
               <label for="timer-slider">Timer Duration</label>
               <span id="timer-val" class="badge">3.0 s</span>
             </div>
             <input type="range" id="timer-slider" min="2" max="10" step="0.5" value="3.0">
-            <small class="helper-text">Blue card disappears automatically after this delay once locked.</small>
+            <small class="helper-text">Color snaps back to red automatically after this duration.</small>
           </div>
 
-          <!-- Audio Snap Sensitivity Slider (Visible when Audio selected) -->
+          <!-- Audio Snap Sensitivity Slider -->
           <div id="audio-settings-group" class="form-group">
             <div class="label-with-value">
               <label for="snap-slider">Snap Sensitivity</label>
@@ -107,34 +115,22 @@
                 <div id="mic-threshold-mark" class="mic-threshold-mark"></div>
               </div>
             </div>
-            <small class="helper-text">Snap your fingers to see the level spike past the threshold marker.</small>
+            <small class="helper-text">Snap your fingers to see the level spike past the white marker.</small>
           </div>
 
-          <!-- Card Appearance Customization -->
-          <div class="form-group">
-            <label class="section-label">Blue Card Image Source</label>
-            <div class="card-preview-row">
-              <img id="card-preview-img" src="blue_card.svg" alt="Card Preview" class="card-thumb">
-              <div class="card-preview-inputs">
-                <input type="text" id="card-url-input" placeholder="Custom Image URL or Leave Empty for Default" class="text-input">
-                <button type="button" id="btn-reset-card-url" class="btn btn-secondary btn-sm">Use Built-in Blue Card</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Color Tracking Calibration -->
+          <!-- Color Sensitivity Slider -->
           <div class="form-group">
             <div class="label-with-value">
               <label for="color-sens-slider">Red Color Sensitivity</label>
               <span id="color-sens-val" class="badge">Balanced</span>
             </div>
             <input type="range" id="color-sens-slider" min="1" max="5" step="1" value="3">
-            <small class="helper-text">Adjust if room lighting is warm or shadows are heavy.</small>
+            <small class="helper-text">Set higher if room has warm light, lower if background has orange/wood.</small>
           </div>
 
-          <!-- Quick Action Buttons -->
+          <!-- Actions -->
           <div class="actions-row">
-            <button id="btn-rearm-trick" class="btn btn-secondary">⚡ Re-arm Trick Now</button>
+            <button id="btn-rearm-trick" class="btn btn-secondary">⚡ Re-arm Trick</button>
             <button id="btn-save-settings" class="btn btn-primary">Save &amp; Close</button>
           </div>
         </div>
@@ -143,6 +139,6 @@
 
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=3.0"></script>
 </body>
 </html>

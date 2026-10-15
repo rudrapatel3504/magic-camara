@@ -1,42 +1,32 @@
 /**
- * MAGIC CAMERA PWA - LIVE CARD TRANSPOSITION ENGINE
+ * MAGIC CAMERA PWA - PURE REAL-TIME COLOR TRANSPOSITION
  * ============================================================================
- * Acts like a 100% normal camera.
- * When a RED card is slid into view, its red color turns BLUE in real-time.
- * When you SNAP your fingers, the blue color instantly turns back to RED!
- * NO floating card in the middle of the screen.
+ * Completely normal camera feed. Zero floating objects.
+ * Any RED card sliding into frame appears BLUE in real-time.
+ * Finger SNAP instantly reverts the color to RED!
  */
 
-// ============================================================================
-// 1. CONFIGURATION & SETTINGS
-// ============================================================================
-// >>> OPTIONAL: SWAP YOUR BLUE CARD IMAGE HERE <<<
-const DEFAULT_BLUE_CARD = 'blue_card.svg';
-const SETTINGS_STORAGE_KEY = 'magic_camera_trick_settings_v2';
+const SETTINGS_STORAGE_KEY = 'magic_camera_settings_v3';
 
 const DEFAULT_SETTINGS = {
   triggerMode: 'audio',       // 'audio' (Finger snap) or 'timer' (Auto countdown)
-  visualEffect: 'colorShift', // 'colorShift' (Seamless Red->Blue) or 'overlay' (Image overlay)
   timerDuration: 3.0,         // Seconds (2 to 10)
   snapSensitivity: 70,        // 30 to 95 (higher = easier to trigger)
-  colorSensitivity: 3,        // 1 (strict red) to 5 (lenient red)
-  customCardUrl: '',          // Custom image URL if user specifies in settings
+  colorSensitivity: 3,        // 1 (strict) to 5 (lenient)
 };
 
 // Application State
 const STATE = {
-  IDLE: 'idle',               // Normal camera view
-  ARMED: 'armed',             // Red card turns to Blue
-  REVEALED: 'revealed'        // Instant reveal triggered (Red visible)
+  ARMED: 'armed',             // Red turns to Blue
+  REVEALED: 'revealed'        // Red color restored
 };
 
-let appState = STATE.ARMED; // Start ready to turn red card into blue
+let appState = STATE.ARMED;
 let settings = loadSettings();
 
 // DOM Elements
 const videoEl = document.getElementById('camera-feed');
 const arCanvas = document.getElementById('ar-canvas');
-const statusIndicator = document.getElementById('status-indicator');
 const revealFlash = document.getElementById('reveal-flash');
 const secretZone = document.getElementById('secret-zone');
 const gearBtn = document.getElementById('gear-btn');
@@ -63,9 +53,6 @@ const micMeterFill = document.getElementById('mic-meter-fill');
 const micThresholdMark = document.getElementById('mic-threshold-mark');
 const colorSensSlider = document.getElementById('color-sens-slider');
 const colorSensVal = document.getElementById('color-sens-val');
-const cardPreviewImg = document.getElementById('card-preview-img');
-const cardUrlInput = document.getElementById('card-url-input');
-const btnResetCardUrl = document.getElementById('btn-reset-card-url');
 
 // Audio Processing Variables
 let audioContext = null;
@@ -87,21 +74,15 @@ let uVideoAspectLocation = null;
 let uScreenAspectLocation = null;
 let isWebGLSupported = true;
 
-// 2D Canvas Fallback Context (if WebGL unavailable)
+// 2D Canvas Fallback Context
 let ctx2d = null;
 
-// Card Image Object
-const blueCardImg = new Image();
-blueCardImg.crossOrigin = 'anonymous';
-updateBlueCardSource();
-
-// Tracking timers
-let cardPresentStartTime = 0;
-let redPixelsDetectedCount = 0;
+// Timers
+let armedStartTime = 0;
 let gearFadeTimer = null;
 
 // ============================================================================
-// 2. INITIALIZATION & LIFECYCLE
+// 1. INITIALIZATION & LIFECYCLE
 // ============================================================================
 window.addEventListener('DOMContentLoaded', () => {
   initUIListeners();
@@ -113,9 +94,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
   resetGearFade();
 
+  // Register fresh service worker with cache bust
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(err => {
-      console.warn('Service Worker registration skipped:', err);
+    navigator.serviceWorker.register('sw.js?v=3.0').then(reg => {
+      reg.update();
+    }).catch(err => {
+      console.warn('SW registration skipped:', err);
     });
   }
 });
@@ -127,7 +111,7 @@ function loadSettings() {
       return Object.assign({}, DEFAULT_SETTINGS, JSON.parse(raw));
     }
   } catch (e) {
-    console.warn('Failed to parse settings:', e);
+    console.warn('Settings parse failed:', e);
   }
   return Object.assign({}, DEFAULT_SETTINGS);
 }
@@ -137,16 +121,6 @@ function saveSettings() {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   } catch (e) {
     console.warn('Could not save settings:', e);
-  }
-}
-
-function updateBlueCardSource() {
-  const src = settings.customCardUrl && settings.customCardUrl.trim() !== '' 
-    ? settings.customCardUrl.trim() 
-    : DEFAULT_BLUE_CARD;
-  blueCardImg.src = src;
-  if (cardPreviewImg) {
-    cardPreviewImg.src = src;
   }
 }
 
@@ -164,7 +138,7 @@ function handleResize() {
 }
 
 // ============================================================================
-// 3. WEBGL SHADER PIPELINE (60FPS LIVE COLOR TRANSPOSITION)
+// 2. WEBGL REAL-TIME COLOR TRANSPOSITION SHADER
 // ============================================================================
 function initRenderer() {
   try {
@@ -175,13 +149,12 @@ function initRenderer() {
   }
 
   if (!gl) {
-    console.warn('WebGL not supported, falling back to 2D canvas');
+    console.warn('WebGL unavailable, using 2D canvas');
     isWebGLSupported = false;
     ctx2d = arCanvas.getContext('2d');
     return;
   }
 
-  // Vertex Shader: Maps video quad with object-fit: cover scaling
   const vsSource = `
     attribute vec2 a_position;
     attribute vec2 a_texCoord;
@@ -192,7 +165,7 @@ function initRenderer() {
     void main() {
       gl_Position = vec4(a_position, 0.0, 1.0);
       
-      // Calculate object-fit: cover texture coordinate mapping
+      // Maintain object-fit: cover aspect ratio
       vec2 coord = a_texCoord;
       if (u_screenAspect > u_videoAspect) {
         float scale = u_videoAspect / u_screenAspect;
@@ -206,8 +179,6 @@ function initRenderer() {
     }
   `;
 
-  // Fragment Shader: Converts true red card ink into sapphire royal blue
-  // Human skin and background are strictly preserved as normal
   const fsSource = `
     precision mediump float;
     varying vec2 v_texCoord;
@@ -215,7 +186,6 @@ function initRenderer() {
     uniform bool u_revealed;
     uniform float u_sensitivity;
 
-    // Convert RGB to HSV for precise chromatic thresholding
     vec3 rgb2hsv(vec3 c) {
       vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
       vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
@@ -227,7 +197,6 @@ function initRenderer() {
     }
 
     void main() {
-      // Discard coordinates outside video bounds if letterboxed
       if (v_texCoord.x < 0.0 || v_texCoord.x > 1.0 || v_texCoord.y < 0.0 || v_texCoord.y > 1.0) {
         gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
         return;
@@ -235,37 +204,35 @@ function initRenderer() {
 
       vec4 color = texture2D(u_image, v_texCoord);
 
-      // If trick is armed (not revealed), transform red card ink to blue
+      // Only shift color when ARMED (before reveal)
       if (!u_revealed) {
         vec3 hsv = rgb2hsv(color.rgb);
         float h = hsv.x * 360.0;
         float s = hsv.y;
         float v = hsv.z;
 
-        // Sensitivity adjustment (slider 1 to 5, normalized around 3)
-        float minSat = 0.52 - (u_sensitivity * 0.04);
-        float minDiff = 0.16 - (u_sensitivity * 0.02);
+        // Dynamic sensitivity tuning
+        float satThreshold = 0.44 - (u_sensitivity * 0.04);
+        float diffThreshold = 0.13 - (u_sensitivity * 0.02);
 
-        // Strict Red Playing Card Ink Criteria:
-        // 1. Hue is centered on red (0° or 360° ± 14°)
-        // 2. High saturation (card ink is vivid; skin tone is pale/low saturation 0.20-0.38)
-        // 3. R strongly dominates G and B
-        bool isRedHue = (h >= 346.0 || h <= 14.0);
-        bool hasCardSaturation = s >= minSat;
-        bool isDominantRed = (color.r > color.g * 1.50) && 
-                             (color.r > color.b * 1.50) && 
-                             ((color.r - max(color.g, color.b)) > minDiff);
+        // Strict Red Playing Card criteria:
+        // Excludes human skin (skin hue is 18°-45°, sat is 0.15-0.38)
+        bool isRedHue = (h >= 342.0 || h <= 18.0);
+        bool hasHighSat = (s >= satThreshold);
+        bool redDominates = (color.r > color.g * 1.35) && 
+                            (color.r > color.b * 1.35) && 
+                            ((color.r - max(color.g, color.b)) > diffThreshold);
 
-        if (isRedHue && hasCardSaturation && isDominantRed && v > 0.15) {
+        if (isRedHue && hasHighSat && redDominates && v > 0.12) {
           // Transform Red into Deep Royal / Sapphire Blue
-          // Preserves card pattern contrast, shadow, and highlights
-          float rOrig = color.r;
-          float gOrig = color.g;
-          float bOrig = color.b;
+          // Preserves card pattern, shading, and texture details
+          float r = color.r;
+          float g = color.g;
+          float b = color.b;
 
-          color.r = rOrig * 0.08;
-          color.g = gOrig * 0.35 + (rOrig * 0.05);
-          color.b = clamp(rOrig * 1.05 + bOrig * 0.25, 0.0, 1.0);
+          color.r = r * 0.06;
+          color.g = g * 0.35 + (r * 0.08);
+          color.b = clamp(r * 1.10 + b * 0.20, 0.0, 1.0);
         }
       }
 
@@ -282,7 +249,6 @@ function initRenderer() {
 
   gl.useProgram(shaderProgram);
 
-  // Set up screen-aligned full quad
   positionBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -294,7 +260,6 @@ function initRenderer() {
      1.0,  1.0,
   ]), gl.STATIC_DRAW);
 
-  // In WebGL, textures from video elements usually have (0,0) at top-left
   texCoordBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -306,7 +271,6 @@ function initRenderer() {
     1.0, 0.0,
   ]), gl.STATIC_DRAW);
 
-  // Setup video texture
   videoTexture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, videoTexture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -314,7 +278,6 @@ function initRenderer() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-  // Uniform locations
   uRevealedLocation = gl.getUniformLocation(shaderProgram, 'u_revealed');
   uSensitivityLocation = gl.getUniformLocation(shaderProgram, 'u_sensitivity');
   uVideoAspectLocation = gl.getUniformLocation(shaderProgram, 'u_videoAspect');
@@ -351,11 +314,11 @@ function compileShader(gl, type, source) {
 }
 
 // ============================================================================
-// 4. CAMERA & MICROPHONE STREAM INITIALIZATION
+// 3. CAMERA & MICROPHONE ACCESS
 // ============================================================================
 btnStart.addEventListener('click', async () => {
   btnStart.disabled = true;
-  btnStart.textContent = 'Starting Camera...';
+  btnStart.textContent = 'Opening Camera...';
   permError.classList.add('hidden');
 
   try {
@@ -380,7 +343,6 @@ btnStart.addEventListener('click', async () => {
         const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioStream.getAudioTracks().forEach(track => stream.addTrack(track));
       } catch (micErr) {
-        console.warn('Microphone permission denied, using timer mode');
         settings.triggerMode = 'timer';
         saveSettings();
         applySettingsToUI();
@@ -390,32 +352,27 @@ btnStart.addEventListener('click', async () => {
     videoEl.srcObject = stream;
     await videoEl.play();
 
-    // Setup Web Audio API for Finger Snap
     if (stream.getAudioTracks().length > 0) {
       setupAudioAnalyzer(stream);
     }
 
-    // Hide Start Screen: Now it's a completely normal live camera!
     startOverlay.classList.add('hidden');
-
-    // Armed and ready for the magic trick
     appState = STATE.ARMED;
-    updateStatusDot();
+    armedStartTime = performance.now();
 
-    // Start 60fps Render Loop
     requestAnimationFrame(renderLoop);
 
   } catch (err) {
-    console.error('Camera permission/init error:', err);
-    permError.textContent = `Error: ${err.message || 'Camera permission denied or camera not found.'}`;
+    console.error('Camera startup error:', err);
+    permError.textContent = `Error: ${err.message || 'Camera permission denied.'}`;
     permError.classList.remove('hidden');
     btnStart.disabled = false;
-    btnStart.textContent = 'Retry Camera Access';
+    btnStart.textContent = 'Retry Opening Camera';
   }
 });
 
 // ============================================================================
-// 5. AUDIO SNAP DETECTION ENGINE (WEB AUDIO API)
+// 4. AUDIO SNAP DETECTION ENGINE (WEB AUDIO API)
 // ============================================================================
 function setupAudioAnalyzer(stream) {
   try {
@@ -425,7 +382,6 @@ function setupAudioAnalyzer(stream) {
     audioContext = new AudioContextClass();
     micSource = audioContext.createMediaStreamSource(stream);
 
-    // Highpass filter: finger snap acoustic impulse is prominent above 1.4 kHz
     const highpass = audioContext.createBiquadFilter();
     highpass.type = 'highpass';
     highpass.frequency.value = 1400;
@@ -452,22 +408,19 @@ function checkAudioSnapTrigger() {
   for (let i = 0; i < micDataArray.length; i++) {
     sum += micDataArray[i];
   }
-  const currentLevel = sum / micDataArray.length; // Range: 0 to 255
+  const currentLevel = sum / micDataArray.length;
 
-  // Update live meter in settings modal (if open)
   if (!settingsModal.classList.contains('hidden') && micMeterFill) {
     const percent = Math.min(100, Math.round((currentLevel / 120) * 100));
     micMeterFill.style.width = `${percent}%`;
   }
 
-  // Dynamic ambient room noise tracking
   recentAverageVolume = (recentAverageVolume * 0.92) + (currentLevel * 0.08);
 
   const now = performance.now();
   const dynamicThreshold = 25 + (100 - settings.snapSensitivity) * 0.7;
   const spikeDelta = currentLevel - recentAverageVolume;
 
-  // Trigger reveal when snap detected while armed
   if (settings.triggerMode === 'audio' && appState === STATE.ARMED) {
     if (currentLevel > dynamicThreshold && spikeDelta > 18 && (now - lastSnapTime > 800)) {
       lastSnapTime = now;
@@ -477,34 +430,29 @@ function checkAudioSnapTrigger() {
 }
 
 // ============================================================================
-// 6. REAL-TIME 60FPS RENDERING LOOP
+// 5. 60FPS REAL-TIME LOOP
 // ============================================================================
 function renderLoop() {
   requestAnimationFrame(renderLoop);
 
-  // Monitor audio in background
   checkAudioSnapTrigger();
 
   if (videoEl.readyState < videoEl.HAVE_CURRENT_DATA) return;
 
   const now = performance.now();
 
-  // If in timer mode and armed, count down once camera is rolling
+  // Timer trigger handler
   if (settings.triggerMode === 'timer' && appState === STATE.ARMED) {
-    if (!cardPresentStartTime) {
-      cardPresentStartTime = now;
-    }
-    const elapsed = (now - cardPresentStartTime) / 1000;
+    if (!armedStartTime) armedStartTime = now;
+    const elapsed = (now - armedStartTime) / 1000;
     if (elapsed >= settings.timerDuration) {
       triggerInstantReveal(`⏱️ Timer Finished (${settings.timerDuration}s)`);
     }
   }
 
-  // 1. WebGL Hardware-Accelerated Color Transposition
   if (isWebGLSupported && gl && shaderProgram) {
     renderWebGLFrame();
   } else if (ctx2d) {
-    // 2. 2D Fallback
     render2DFallbackFrame();
   }
 }
@@ -512,11 +460,9 @@ function renderLoop() {
 function renderWebGLFrame() {
   gl.useProgram(shaderProgram);
 
-  // Upload live video frame into GPU texture
   gl.bindTexture(gl.TEXTURE_2D, videoTexture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, videoEl);
 
-  // Set Uniforms
   const isRevealed = (appState === STATE.REVEALED);
   gl.uniform1i(uRevealedLocation, isRevealed ? 1 : 0);
   gl.uniform1f(uSensitivityLocation, settings.colorSensitivity);
@@ -526,7 +472,6 @@ function renderWebGLFrame() {
   gl.uniform1f(uVideoAspectLocation, videoAspect);
   gl.uniform1f(uScreenAspectLocation, screenAspect);
 
-  // Bind Buffers
   const aPositionLocation = gl.getAttribLocation(shaderProgram, 'a_position');
   gl.enableVertexAttribArray(aPositionLocation);
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -537,7 +482,6 @@ function renderWebGLFrame() {
   gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
   gl.vertexAttribPointer(aTexCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
-  // Draw full-screen quad
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 
@@ -545,98 +489,81 @@ function render2DFallbackFrame() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   ctx2d.drawImage(videoEl, 0, 0, w, h);
+
+  // 2D pixel color shift fallback
+  if (appState === STATE.ARMED) {
+    const frame = ctx2d.getImageData(0, 0, w, h);
+    const d = frame.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i];
+      const g = d[i+1];
+      const b = d[i+2];
+      if (r > 110 && r > g * 1.4 && r > b * 1.4 && (r - Math.max(g, b)) > 30) {
+        d[i] = r * 0.08;
+        d[i+1] = g * 0.35 + r * 0.08;
+        d[i+2] = Math.min(255, r * 1.1 + b * 0.2);
+      }
+    }
+    ctx2d.putImageData(frame, 0, 0);
+  }
 }
 
 // ============================================================================
-// 7. THE "REVEAL" MOMENT (MAGIC INSTANT REMOVAL)
+// 6. INSTANT REVEAL & SILENT RE-ARM
 // ============================================================================
 function triggerInstantReveal(reason) {
   if (appState === STATE.REVEALED) return;
 
-  console.log(`✨ MAGIC REVEAL TRIGGERED: ${reason}`);
-
-  // Instantly flip state so red card shows on screen
+  console.log(`✨ COLOR REVERTED TO RED: ${reason}`);
   appState = STATE.REVEALED;
-  updateStatusDot();
 
-  // Subtle 60ms white optical flash to accentuate the instant change
+  // Optical micro-flash
   revealFlash.classList.add('active');
   setTimeout(() => {
     revealFlash.classList.remove('active');
   }, 65);
 
-  // Show unobtrusive re-arm banner so magician can repeat trick
   rearmOverlay.classList.remove('hidden');
 }
 
-/**
- * Re-arms the trick: red card will appear blue again
- */
 function rearmTrick() {
   appState = STATE.ARMED;
-  cardPresentStartTime = 0;
-  updateStatusDot();
+  armedStartTime = performance.now();
   rearmOverlay.classList.add('hidden');
 }
 
-function updateStatusDot() {
-  if (appState === STATE.ARMED) {
-    statusIndicator.classList.remove('hidden');
-  } else {
-    statusIndicator.classList.add('hidden');
-  }
-}
-
 // ============================================================================
-// 8. SECRET SETTINGS & MAGICIAN CONTROLS
+// 7. HIDDEN SETTINGS & CONTROLS
 // ============================================================================
 function initUIListeners() {
-  // Secret Long-Press (Bottom-Left Corner): Press & hold 1s to open settings
   let secretPressTimer = null;
 
-  secretZone.addEventListener('touchstart', (e) => {
+  secretZone.addEventListener('touchstart', () => {
     secretPressTimer = setTimeout(() => {
       openSettingsModal();
       if (navigator.vibrate) navigator.vibrate(50);
     }, 900);
   }, { passive: true });
 
-  secretZone.addEventListener('touchend', () => {
-    clearTimeout(secretPressTimer);
-  });
-  secretZone.addEventListener('touchcancel', () => {
-    clearTimeout(secretPressTimer);
-  });
-
-  // Desktop contextmenu fallback
+  secretZone.addEventListener('touchend', () => clearTimeout(secretPressTimer));
+  secretZone.addEventListener('touchcancel', () => clearTimeout(secretPressTimer));
   secretZone.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     openSettingsModal();
   });
 
-  // Gear Button: Fades out after 3s, tap brings it back
-  gearBtn.addEventListener('click', () => {
-    openSettingsModal();
-  });
+  gearBtn.addEventListener('click', openSettingsModal);
 
   document.addEventListener('pointerdown', (e) => {
-    // Tap near top-right corner wakes up gear icon
     if (e.clientX > window.innerWidth - 80 && e.clientY < 80) {
       resetGearFade();
     }
-
-    // Tap anywhere on screen while revealed instantly re-arms
     if (appState === STATE.REVEALED && !e.target.closest('#settings-modal')) {
       rearmTrick();
     }
   });
 
-  // Re-arm banner tap
-  rearmOverlay.addEventListener('click', () => {
-    rearmTrick();
-  });
-
-  // Modal Close buttons
+  rearmOverlay.addEventListener('click', rearmTrick);
   btnCloseSettingsX.addEventListener('click', closeSettingsModal);
   btnSaveSettings.addEventListener('click', saveAndApplySettings);
   btnRearmTrick.addEventListener('click', () => {
@@ -644,19 +571,14 @@ function initUIListeners() {
     closeSettingsModal();
   });
 
-  // Trigger Mode Radio Pills
   radioPills.forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      updateTriggerModeUI(e.target.value);
-    });
+    radio.addEventListener('change', (e) => updateTriggerModeUI(e.target.value));
   });
 
-  // Timer Duration Slider
   timerSlider.addEventListener('input', (e) => {
     timerVal.textContent = `${parseFloat(e.target.value).toFixed(1)} s`;
   });
 
-  // Snap Sensitivity Slider
   snapSlider.addEventListener('input', (e) => {
     const val = parseInt(e.target.value, 10);
     snapVal.textContent = val > 80 ? `High (${val})` : (val < 50 ? `Low (${val})` : `Medium (${val})`);
@@ -665,25 +587,10 @@ function initUIListeners() {
     }
   });
 
-  // Color Sensitivity Slider
   colorSensSlider.addEventListener('input', (e) => {
     const v = parseInt(e.target.value, 10);
     const labels = ['Strict', 'Medium-Strict', 'Balanced', 'Medium-Lenient', 'Lenient'];
     colorSensVal.textContent = labels[v - 1] || 'Balanced';
-  });
-
-  btnResetCardUrl.addEventListener('click', () => {
-    cardUrlInput.value = '';
-    cardPreviewImg.src = DEFAULT_BLUE_CARD;
-  });
-
-  cardUrlInput.addEventListener('change', () => {
-    const url = cardUrlInput.value.trim();
-    if (url) {
-      cardPreviewImg.src = url;
-    } else {
-      cardPreviewImg.src = DEFAULT_BLUE_CARD;
-    }
   });
 }
 
@@ -734,11 +641,6 @@ function applySettingsToUI() {
   colorSensSlider.value = settings.colorSensitivity;
   const labels = ['Strict', 'Medium-Strict', 'Balanced', 'Medium-Lenient', 'Lenient'];
   colorSensVal.textContent = labels[settings.colorSensitivity - 1] || 'Balanced';
-
-  cardUrlInput.value = settings.customCardUrl || '';
-  cardPreviewImg.src = (settings.customCardUrl && settings.customCardUrl.trim()) 
-    ? settings.customCardUrl.trim() 
-    : DEFAULT_BLUE_CARD;
 }
 
 function saveAndApplySettings() {
@@ -747,9 +649,7 @@ function saveAndApplySettings() {
   settings.timerDuration = parseFloat(timerSlider.value) || 3.0;
   settings.snapSensitivity = parseInt(snapSlider.value, 10) || 70;
   settings.colorSensitivity = parseInt(colorSensSlider.value, 10) || 3;
-  settings.customCardUrl = cardUrlInput.value.trim();
 
   saveSettings();
-  updateBlueCardSource();
   closeSettingsModal();
 }

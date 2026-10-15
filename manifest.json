@@ -1,7 +1,7 @@
 {
-  "name": "Magic Camera - Card Transposition",
-  "short_name": "Magic Card",
-  "description": "Live WebAR magic trick: instant card color transposition",
+  "name": "HD Camera",
+  "short_name": "HD Camera",
+  "description": "High definition live camera viewfinder",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -10,20 +10,16 @@
   "theme_color": "#0a0a0f",
   "icons": [
     {
-      "src": "blue_card.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    },
-    {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

@@ -442,47 +442,6 @@ input[type="range"]::-webkit-slider-thumb {
   z-index: 2;
 }
 
-/* Card Preview Row */
-.card-preview-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: rgba(0, 0, 0, 0.25);
-  padding: 10px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-}
-
-.card-thumb {
-  width: 48px;
-  height: 68px;
-  object-fit: cover;
-  border-radius: 6px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-  background: #fff;
-}
-
-.card-preview-inputs {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.text-input {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 8px 10px;
-  color: #fff;
-  font-size: 12px;
-  outline: none;
-}
-
-.text-input:focus {
-  border-color: var(--accent-color);
-}
 
 /* Buttons */
 .btn {
