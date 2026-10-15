@@ -157,14 +157,6 @@ function initRenderer() {
     }
   `;
 
-  // Fragment Shader: Converts EVERY shade of red/orange/ruby/crimson directly to its corresponding shade of Bicycle Blue
-  const fsSource = `
-    precision mediump float;
-    varying vec2 v_texCoord;
-    uniform sampler2D u_image;
-    uniform float u_blueAmount;
-    uniform float u_sensitivity;
-
   // Fragment Shader: Oklab Perceptual Chromatic Engine with Specular Highlight Preservation
   const fsSource = `
     precision mediump float;
@@ -193,7 +185,7 @@ function initRenderer() {
       vec3 cl = clamp(c, 0.0, 1.0);
       return mix(
         cl * 12.92,
-        1.055 * pow(cl, vec3(0.41666667)) - 0.055,
+        1.055 * pow(max(cl, 0.00005), vec3(0.41666667)) - 0.055,
         step(0.0031308, cl)
       );
     }
@@ -250,7 +242,7 @@ function initRenderer() {
         float b = oklab.z;
 
         float chroma = sqrt(a * a + b * b);
-        float hueRad = atan(b, a);
+        float hueRad = (chroma > 0.0001) ? atan(b, a) : 0.0;
         float hueDeg = degrees(hueRad);
         if (hueDeg < 0.0) hueDeg += 360.0;
 
@@ -344,10 +336,28 @@ function createShaderProgram(gl, vs, fs) {
   const p = gl.createProgram();
   const v = gl.createShader(gl.VERTEX_SHADER);
   const f = gl.createShader(gl.FRAGMENT_SHADER);
-  gl.shaderSource(v, vs); gl.compileShader(v);
-  gl.shaderSource(f, fs); gl.compileShader(f);
-  gl.attachShader(p, v); gl.attachShader(p, f);
+  
+  gl.shaderSource(v, vs);
+  gl.compileShader(v);
+  if (!gl.getShaderParameter(v, gl.COMPILE_STATUS)) {
+    console.error('Vertex Shader Compile Error:', gl.getShaderInfoLog(v));
+    return null;
+  }
+
+  gl.shaderSource(f, fs);
+  gl.compileShader(f);
+  if (!gl.getShaderParameter(f, gl.COMPILE_STATUS)) {
+    console.error('Fragment Shader Compile Error:', gl.getShaderInfoLog(f));
+    return null;
+  }
+
+  gl.attachShader(p, v);
+  gl.attachShader(p, f);
   gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    console.error('Shader Program Link Error:', gl.getProgramInfoLog(p));
+    return null;
+  }
   return p;
 }
 
@@ -358,18 +368,25 @@ async function startCameraStream() {
   if (isCameraRunning) return;
 
   try {
-    const isPortrait = window.innerHeight > window.innerWidth;
-    // Request native 4:3 hardware sensor resolution (Zero Crop on OnePlus 12R)
-    const constraints = {
-      video: {
-        facingMode: { ideal: currentFacingMode },
-        width: { ideal: 1920, max: 2560 },
-        height: { ideal: 1440, max: 1920 },
-        aspectRatio: { ideal: isPortrait ? (3 / 4) : (4 / 3) }
-      }
-    };
+    let stream = null;
+    try {
+      // 1. Try high-definition 4:3 constraints
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: currentFacingMode },
+          width: { ideal: 1920 },
+          height: { ideal: 1440 }
+        }
+      });
+    } catch (e1) {
+      console.warn('High-res constraints rejected, falling back to standard facingMode:', e1);
+      // 2. Fallback to basic facingMode if overconstrained
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: currentFacingMode }
+      });
+    }
 
-    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+    currentStream = stream;
     videoEl.srcObject = currentStream;
     await videoEl.play();
 
@@ -382,7 +399,8 @@ async function startCameraStream() {
 
     requestAnimationFrame(renderLoop);
   } catch (err) {
-    console.log('Camera awaiting user interaction or permissions:', err);
+    console.error('Camera stream error:', err);
+    cameraStarter.classList.remove('hidden');
   }
 }
 
