@@ -187,71 +187,7 @@
             </div>
           </div>
 
-          <!-- Color Wheel & Target Calibration -->
-          <div class="sheet-section-divider">
-            <span class="sheet-section-title">Color Wheel Calibration</span>
-          </div>
 
-          <!-- Vertical Color Stacking (Clean vertical card layout) -->
-          <div class="sheet-color-vertical">
-            <!-- 1. Color to Detect Card -->
-            <div class="color-vertical-card">
-              <div class="color-vertical-header">
-                <div class="color-step-badge">1</div>
-                <div class="color-vertical-titles">
-                  <span class="color-card-title">Color to Detect</span>
-                  <span class="color-card-sub">Tap wheel to pick exact real card color</span>
-                </div>
-              </div>
-              <div class="color-vertical-action">
-                <div class="color-wheel-pill">
-                  <input type="color" id="picker-source-color" value="#d81b1b" class="color-circle-input">
-                  <span id="source-color-hex" class="color-hex-tag">#d81b1b</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Arrow Indicator in middle -->
-            <div class="color-vertical-arrow-divider">
-              <div class="arrow-line"></div>
-              <div class="arrow-badge">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <polyline points="19 12 12 19 5 12"></polyline>
-                </svg>
-                <span>TRANSFORMS INTO</span>
-              </div>
-              <div class="arrow-line"></div>
-            </div>
-
-            <!-- 2. Target Color Card -->
-            <div class="color-vertical-card active-target">
-              <div class="color-vertical-header">
-                <div class="color-step-badge badge-blue">2</div>
-                <div class="color-vertical-titles">
-                  <span class="color-card-title">Change It To</span>
-                  <span class="color-card-sub">Tap wheel to pick target color to appear</span>
-                </div>
-              </div>
-              <div class="color-vertical-action">
-                <div class="color-wheel-pill">
-                  <input type="color" id="picker-target-color" value="#0a2265" class="color-circle-input">
-                  <span id="target-color-hex" class="color-hex-tag">#0a2265</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Quick Presets -->
-          <div class="sheet-presets-container">
-            <span class="presets-label">Quick 1-Tap Presets:</span>
-            <div class="sheet-presets-row">
-              <button type="button" class="preset-chip active" data-src="#d81b1b" data-tgt="#0a2265">🔴➔🔵 Bicycle Blue</button>
-              <button type="button" class="preset-chip" data-src="#d81b1b" data-tgt="#d4af37">🔴➔🟡 Gold</button>
-              <button type="button" class="preset-chip" data-src="#0a2265" data-tgt="#d81b1b">🔵➔🔴 Blue to Red</button>
-              <button type="button" class="preset-chip" data-src="#1b8a2b" data-tgt="#0a2265">🟢➔🔵 Green to Blue</button>
-            </div>
-          </div>
 
           <!-- Timer Delay Slider (if Timer selected) -->
           <div id="timer-settings-group" class="sheet-group hidden">
@@ -289,6 +225,6 @@
 
   </div>
 
-  <script src="script.js?v=7.1"></script>
+  <script src="script.js?v=8.0"></script>
 </body>
 </html>
