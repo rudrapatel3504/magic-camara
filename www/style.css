@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GOOGLE CAMERA (GCAM) INTERFACE THEME
+   GOOGLE CAMERA (GCAM) INTERFACE THEME - FULL-BLEED MOBILE FIT
    Pixel Camera Design System & Disguised Magic Engine
    ========================================================================== */
 
@@ -7,11 +7,9 @@
   --gcam-black: #000000;
   --gcam-surface: #1e1f22;
   --gcam-surface-variant: #2d3036;
-  --gcam-accent: #e3e2e6;
+  --gcam-accent: #8ab4f8;
   --gcam-yellow: #fdd663;
   --gcam-pill-bg: rgba(255, 255, 255, 0.12);
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * {
@@ -24,6 +22,11 @@
 }
 
 html, body {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
   height: 100dvh;
@@ -35,15 +38,17 @@ html, body {
 }
 
 #gcam-app {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-/* Background Raw Camera Feed (Hidden) */
+/* Background Raw Camera Feed (Hidden, fed into WebGL Canvas) */
 #camera-feed {
   position: absolute;
   top: 0;
@@ -65,9 +70,8 @@ html, body {
   height: 100%;
   z-index: 2;
   background: #000;
+  object-fit: cover;
 }
-
-
 
 /* Focus Reticle */
 .focus-ring {
@@ -98,19 +102,24 @@ html, body {
   top: 0;
   left: 0;
   right: 0;
-  padding: calc(12px + var(--safe-top)) 20px 14px 20px;
+  padding: calc(max(8px, env(safe-area-inset-top)) + 4px) 16px 10px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   z-index: 20;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.3) 60%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+
+.gcam-top-bar > * {
+  pointer-events: auto;
 }
 
 .gcam-icon-btn {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
   border: none;
   color: #ffffff;
@@ -122,8 +131,8 @@ html, body {
 }
 
 .gcam-icon-btn svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 .gcam-icon-btn:active {
@@ -132,7 +141,7 @@ html, body {
 }
 
 .gcam-pill-btn {
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 20px;
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(10px);
@@ -145,15 +154,15 @@ html, body {
 }
 
 .chevron-down {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 /* TAP TO START OVERLAY */
 .camera-starter-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(14px);
   display: flex;
   flex-direction: column;
@@ -172,8 +181,8 @@ html, body {
 }
 
 .starter-lens {
-  width: 70px;
-  height: 70px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.12);
   display: flex;
@@ -183,8 +192,8 @@ html, body {
 }
 
 .starter-lens svg {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
 }
 
 .camera-starter-overlay p {
@@ -200,13 +209,18 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  padding-bottom: calc(20px + var(--safe-bottom));
+  padding-bottom: calc(max(10px, env(safe-area-inset-bottom)) + 6px);
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 60%, rgba(0, 0, 0, 0) 100%);
+  gap: clamp(6px, 1.3vh, 12px);
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.5) 65%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+
+.gcam-bottom-bar > * {
+  pointer-events: auto;
 }
 
 /* Zoom Pills (.6 | 1x | 2x) */
@@ -218,22 +232,22 @@ html, body {
 .zoom-pill-container {
   display: flex;
   align-items: center;
-  background: rgba(30, 31, 34, 0.7);
+  background: rgba(30, 31, 34, 0.75);
   backdrop-filter: blur(12px);
-  padding: 4px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 3px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   gap: 2px;
 }
 
 .zoom-btn {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: none;
   background: transparent;
   color: #c4c6d0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -251,10 +265,10 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  font-size: 13px;
+  gap: clamp(12px, 4vw, 20px);
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   color: #939094;
   overflow: hidden;
   width: 100%;
@@ -262,9 +276,9 @@ html, body {
 
 .mode-item.active {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.16);
-  padding: 5px 14px;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.18);
+  padding: 4px 12px;
+  border-radius: 14px;
 }
 
 /* Shutter Row */
@@ -273,14 +287,14 @@ html, body {
   align-items: center;
   justify-content: space-around;
   width: 100%;
-  max-width: 380px;
-  padding: 0 20px;
+  max-width: 360px;
+  padding: 0 16px;
 }
 
 /* Gallery Circle Preview */
 .gallery-preview-btn {
-  width: 50px;
-  height: 50px;
+  width: clamp(42px, 11vw, 48px);
+  height: clamp(42px, 11vw, 48px);
   border-radius: 50%;
   background: #2b2b2b;
   border: 2px solid rgba(255, 255, 255, 0.2);
@@ -312,15 +326,15 @@ html, body {
 }
 
 .shutter-outer-ring {
-  width: 76px;
-  height: 76px;
+  width: clamp(62px, 16vw, 74px);
+  height: clamp(62px, 16vw, 74px);
   border-radius: 50%;
-  border: 4px solid #ffffff;
+  border: 3.5px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  padding: 3.5px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
 .shutter-inner-fill {
@@ -338,8 +352,8 @@ html, body {
 
 /* Flip Camera Button */
 .camera-flip-btn {
-  width: 50px;
-  height: 50px;
+  width: clamp(42px, 11vw, 48px);
+  height: clamp(42px, 11vw, 48px);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.14);
   border: none;
@@ -348,23 +362,19 @@ html, body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .camera-flip-btn svg {
-  width: 24px;
-  height: 24px;
-}
-
-.camera-flip-btn:active {
-  transform: rotate(180deg);
+  width: 22px;
+  height: 22px;
 }
 
 /* AUTHENTIC GCAM SETTINGS BOTTOM SHEET */
 .gcam-sheet-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(10px);
   z-index: 50;
   display: flex;
@@ -383,13 +393,14 @@ html, body {
   background: var(--gcam-surface);
   border-top-left-radius: 28px;
   border-top-right-radius: 28px;
-  padding: 16px 22px calc(24px + var(--safe-bottom)) 22px;
+  padding: 14px 20px calc(24px + env(safe-area-inset-bottom)) 20px;
   box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-height: 85vh;
+  gap: 14px;
+  max-height: 82vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sheet-drag-handle {
@@ -407,7 +418,7 @@ html, body {
 }
 
 .sheet-header h2 {
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 600;
   color: #fff;
 }
@@ -423,14 +434,14 @@ html, body {
 .sheet-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .sheet-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
+  padding: 6px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -441,7 +452,7 @@ html, body {
 }
 
 .sheet-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   color: #fff;
 }
@@ -455,7 +466,7 @@ html, body {
   background: var(--gcam-pill-bg);
   padding: 4px 10px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
   color: #c4c6d0;
 }
 
@@ -479,7 +490,7 @@ html, body {
   display: block;
   padding: 6px 12px;
   border-radius: 9px;
-  font-size: 13px;
+  font-size: 12px;
   color: #939094;
 }
 
@@ -491,8 +502,12 @@ html, body {
 .sheet-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 6px 0;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.sheet-group.hidden {
+  display: none;
 }
 
 .sheet-slider-header {
@@ -526,45 +541,13 @@ html, body {
   box-shadow: 0 0 6px rgba(138, 180, 248, 0.6);
 }
 
-.gcam-meter-bar {
-  position: relative;
-  width: 100%;
-  height: 8px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.gcam-meter-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #34a853, #fbbc04, #ea4335);
-  transition: width 0.05s linear;
-}
-
-.gcam-threshold-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: #ffffff;
-  left: 70%;
-}
-
-.gcam-switch {
-  width: 40px;
-  height: 22px;
-  accent-color: #8ab4f8;
-  cursor: pointer;
-}
-
 .sheet-section-divider {
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sheet-section-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -577,20 +560,20 @@ html, body {
   justify-content: space-between;
   gap: 12px;
   background: #141518;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border-radius: 16px;
 }
 
 .color-picker-box {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
   flex: 1;
 }
 
 .color-box-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #939094;
   font-weight: 500;
 }
@@ -608,8 +591,8 @@ html, body {
   -webkit-appearance: none;
   appearance: none;
   border: none;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   cursor: pointer;
   background: transparent;
@@ -634,13 +617,13 @@ html, body {
 }
 
 .color-hex-tag {
-  font-size: 13px;
+  font-size: 12px;
   font-family: monospace;
   color: #ffffff;
 }
 
 .color-arrow-indicator {
-  font-size: 18px;
+  font-size: 16px;
   color: #8ab4f8;
   font-weight: bold;
 }
@@ -655,9 +638,9 @@ html, body {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #c4c6d0;
-  padding: 6px 11px;
-  border-radius: 16px;
-  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 14px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -671,7 +654,7 @@ html, body {
 }
 
 .sheet-actions {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .gcam-primary-btn {

@@ -313,11 +313,12 @@ async function startCameraStream() {
   if (isCameraRunning) return;
 
   try {
+    const isPortrait = window.innerHeight > window.innerWidth;
     const constraints = {
       video: {
         facingMode: { ideal: currentFacingMode },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
+        width: { ideal: isPortrait ? 1080 : 1920 },
+        height: { ideal: isPortrait ? 1920 : 1080 }
       }
     };
 
@@ -394,7 +395,10 @@ function renderLoop() {
     gl.uniform3fv(uTargetColorLocation, hexToRgb(settings.targetColor));
     gl.uniform1i(uIsFrontCameraLocation, currentFacingMode === 'user' ? 1 : 0);
 
-    const videoAspect = (videoEl.videoWidth || 1280) / (videoEl.videoHeight || 720);
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const vw = videoEl.videoWidth || (isPortrait ? 1080 : 1920);
+    const vh = videoEl.videoHeight || (isPortrait ? 1920 : 1080);
+    const videoAspect = vw / vh;
     const screenAspect = window.innerWidth / window.innerHeight;
     gl.uniform1f(uVideoAspectLocation, videoAspect);
     gl.uniform1f(uScreenAspectLocation, screenAspect);
