@@ -1,5 +1,5 @@
-// Service Worker - OnePlus 12R Camera v13
-const CACHE_NAME = 'magic-camera-v13';
+// Service Worker - OnePlus 12R Camera v14
+const CACHE_NAME = 'magic-camera-v14';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

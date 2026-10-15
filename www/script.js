@@ -47,6 +47,7 @@ const videoEl = document.getElementById('camera-feed');
 const arCanvas = document.getElementById('ar-canvas');
 const vfContainer = document.getElementById('viewfinder-container');
 const focusReticle = document.getElementById('focus-reticle');
+const cueDot = document.getElementById('magician-cue-dot');
 const cameraStarter = document.getElementById('camera-tap-starter');
 const shutterBtn = document.getElementById('shutter-btn');
 const btnFlip = document.getElementById('btn-flip');
@@ -361,12 +362,28 @@ function renderLoop() {
   const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
   lastFrameTime = now;
 
-  // 10-Second Auto Reveal Trigger from camera open
+  // 10-Second Auto Reveal Trigger with Covert Magician 3-Second Cue
   if (settings.triggerMode === 'timer' && appState === STATE.ARMED) {
     if (!armedStartTime) armedStartTime = now;
-    if ((now - armedStartTime) / 1000 >= settings.timerDuration) {
+    const elapsed = (now - armedStartTime) / 1000;
+    const remaining = settings.timerDuration - elapsed;
+
+    // Covert Magician Cue: pulses softly once per second in the last 3 seconds
+    if (cueDot) {
+      if (remaining <= 3.0 && remaining > 0.0) {
+        const phase = (remaining % 1.0) < 0.5;
+        cueDot.style.opacity = phase ? '0.85' : '0.0';
+      } else {
+        cueDot.style.opacity = '0.0';
+      }
+    }
+
+    if (elapsed >= settings.timerDuration) {
+      if (cueDot) cueDot.style.opacity = '0.0';
       triggerReveal();
     }
+  } else if (cueDot) {
+    cueDot.style.opacity = '0.0';
   }
 
   // Direct Cut vs Smooth Fade
@@ -431,6 +448,7 @@ function renderLoop() {
 // 5. REVEAL & SHUTTER ACTIONS
 // ============================================================================
 function triggerReveal() {
+  if (cueDot) cueDot.style.opacity = '0.0';
   if (appState === STATE.REVEALED) return;
   appState = STATE.REVEALED;
   // Instantly cut card from red to blue
@@ -441,6 +459,7 @@ function triggerReveal() {
 }
 
 function resetToRed() {
+  if (cueDot) cueDot.style.opacity = '0.0';
   appState = STATE.ARMED;
   armedStartTime = performance.now();
   targetBlueAmount = 1.0;
