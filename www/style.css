@@ -127,55 +127,6 @@ html, body {
   object-fit: contain;
 }
 
-/* Subtle OnePlus Face Detection Corner Brackets */
-.op-face-box {
-  position: absolute;
-  width: 125px;
-  height: 125px;
-  left: 50%;
-  bottom: 8%;
-  transform: translateX(-50%);
-  pointer-events: none;
-  opacity: 0.85;
-  z-index: 8;
-  transition: opacity 0.3s ease;
-}
-
-.op-face-box .face-corner {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border-color: var(--op-gold);
-  border-style: solid;
-}
-
-.op-face-box .tl {
-  top: 0;
-  left: 0;
-  border-width: 2.2px 0 0 2.2px;
-  border-top-left-radius: 4px;
-}
-
-.op-face-box .tr {
-  top: 0;
-  right: 0;
-  border-width: 2.2px 2.2px 0 0;
-  border-top-right-radius: 4px;
-}
-
-.op-face-box .bl {
-  bottom: 0;
-  left: 0;
-  border-width: 0 0 2.2px 2.2px;
-  border-bottom-left-radius: 4px;
-}
-
-.op-face-box .br {
-  bottom: 0;
-  right: 0;
-  border-width: 0 2.2px 2.2px 0;
-  border-bottom-right-radius: 4px;
-}
 
 /* Floating Action Controls on Right Edge of Viewfinder */
 .vf-floating-controls {
