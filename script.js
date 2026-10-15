@@ -30,7 +30,7 @@ let settings = loadSettings();
 let currentFacingMode = 'user';
 let currentStream = null;
 let flipRotation = 0;
-let currentZoom = 1.0;
+let currentZoom = 0.8; // Default to wide 0.8x for OnePlus 12R front camera!
 
 // Fade transition progress (1.0 = transposed color, 0.0 = original color)
 let currentBlueAmount = 1.0;
@@ -43,15 +43,19 @@ const arCanvas = document.getElementById('ar-canvas');
 const focusReticle = document.getElementById('focus-reticle');
 const cameraStarter = document.getElementById('camera-tap-starter');
 
-// GCam Controls
+// OnePlus Camera Controls
 const shutterBtn = document.getElementById('shutter-btn');
 const btnFlip = document.getElementById('btn-flip');
 const btnSettings = document.getElementById('btn-settings');
-const btnDrawer = document.getElementById('btn-gcam-drawer');
 const btnCloseSheet = document.getElementById('btn-close-sheet');
 const btnSaveSheet = document.getElementById('btn-save-sheet');
 const settingsSheet = document.getElementById('gcam-settings-modal');
-const zoomBtns = document.querySelectorAll('.zoom-btn');
+const zoomContainer = document.getElementById('zoom-container');
+const btnFlash = document.getElementById('btn-flash');
+const badgeHdr = document.getElementById('badge-hdr');
+const badgeAi = document.getElementById('badge-ai');
+const badgeRatio = document.getElementById('badge-ratio');
+const badgeTimer = document.getElementById('badge-timer');
 
 // Settings Elements
 const aspectRadios = document.querySelectorAll('input[name="aspectRatioMode"]');
@@ -383,6 +387,8 @@ async function toggleCameraFlip() {
   btnFlip.style.transform = `rotate(${flipRotation}deg)`;
 
   currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+  currentZoom = (currentFacingMode === 'user') ? 0.8 : 1.0;
+  renderZoomPills();
 
   if (currentStream) {
     currentStream.getTracks().forEach(track => track.stop());
@@ -545,19 +551,50 @@ function initGCamUI() {
 
   // Settings Sheet Toggle
   btnSettings.addEventListener('click', () => settingsSheet.classList.remove('hidden'));
-  btnDrawer.addEventListener('click', () => settingsSheet.classList.remove('hidden'));
   btnCloseSheet.addEventListener('click', () => settingsSheet.classList.add('hidden'));
   btnSaveSheet.addEventListener('click', () => {
     saveSettingsFromUI();
     settingsSheet.classList.add('hidden');
   });
 
-  // Zoom pills
-  zoomBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const z = parseFloat(btn.dataset.zoom) || 1.0;
-      setZoom(z);
+  // Render OnePlus Zoom Pills (.8 & 1x for front camera)
+  renderZoomPills();
+
+  // OnePlus Top Bar Badges
+  if (badgeHdr) {
+    badgeHdr.addEventListener('click', () => badgeHdr.classList.toggle('active'));
+  }
+  if (badgeAi) {
+    badgeAi.addEventListener('click', () => badgeAi.classList.toggle('active'));
+  }
+  if (badgeRatio) {
+    badgeRatio.addEventListener('click', () => settingsSheet.classList.remove('hidden'));
+  }
+  if (badgeTimer) {
+    badgeTimer.addEventListener('click', () => settingsSheet.classList.remove('hidden'));
+  }
+  if (btnFlash) {
+    let flashStates = ['auto', 'on', 'off'];
+    let flashIdx = 0;
+    btnFlash.addEventListener('click', () => {
+      flashIdx = (flashIdx + 1) % flashStates.length;
+      btnFlash.classList.toggle('active', flashStates[flashIdx] !== 'off');
+    });
+  }
+
+  // OnePlus Modes Carousel
+  const modeItems = document.querySelectorAll('.oneplus-modes-carousel .mode-item');
+  modeItems.forEach(item => {
+    item.addEventListener('click', () => {
+      modeItems.forEach(m => {
+        m.classList.remove('active');
+        const dot = m.querySelector('.oneplus-active-dot');
+        if (dot) dot.remove();
+      });
+      item.classList.add('active');
+      const dot = document.createElement('span');
+      dot.className = 'oneplus-active-dot';
+      item.appendChild(dot);
     });
   });
 
@@ -565,6 +602,9 @@ function initGCamUI() {
   aspectRadios.forEach(r => {
     r.addEventListener('change', (e) => {
       settings.aspectRatioMode = e.target.value;
+      if (badgeRatio) {
+        badgeRatio.textContent = e.target.value === 'wide' ? '4:3' : '16:9';
+      }
     });
   });
 
@@ -577,6 +617,9 @@ function initGCamUI() {
 
   timerSlider.addEventListener('input', (e) => {
     timerVal.textContent = `${parseFloat(e.target.value).toFixed(1)} s`;
+    if (badgeTimer) {
+      badgeTimer.textContent = `⏱️ ${parseFloat(e.target.value).toFixed(0)}s`;
+    }
   });
 
   colorSensSlider.addEventListener('input', (e) => {
@@ -584,19 +627,47 @@ function initGCamUI() {
     const labels = ['Strict', 'Medium-Strict', 'Balanced', 'Medium-Lenient', 'Lenient'];
     colorSensVal.textContent = labels[v - 1] || 'Balanced';
   });
+}
 
+function renderZoomPills() {
+  if (!zoomContainer) return;
+  if (currentFacingMode === 'user') {
+    // OnePlus 12R Front Camera (.8 wide-angle & 1x)
+    zoomContainer.innerHTML = `
+      <button class="zoom-btn ${currentZoom <= 0.85 ? 'active' : ''}" data-zoom="0.8">.8</button>
+      <button class="zoom-btn ${currentZoom > 0.85 ? 'active' : ''}" data-zoom="1.0">1x</button>
+    `;
+  } else {
+    // OnePlus 12R Rear Camera (.6 ultra-wide, 1x main, 2x, 5x)
+    zoomContainer.innerHTML = `
+      <button class="zoom-btn ${currentZoom <= 0.7 ? 'active' : ''}" data-zoom="0.6">.6</button>
+      <button class="zoom-btn ${currentZoom > 0.7 && currentZoom <= 1.5 ? 'active' : ''}" data-zoom="1.0">1x</button>
+      <button class="zoom-btn ${currentZoom > 1.5 && currentZoom <= 3.5 ? 'active' : ''}" data-zoom="2.0">2x</button>
+      <button class="zoom-btn ${currentZoom > 3.5 ? 'active' : ''}" data-zoom="5.0">5x</button>
+    `;
+  }
+
+  zoomContainer.querySelectorAll('.zoom-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const z = parseFloat(btn.dataset.zoom) || 1.0;
+      setZoom(z);
+    });
+  });
 }
 
 function setZoom(z) {
   currentZoom = z;
-  zoomBtns.forEach(b => {
-    const val = parseFloat(b.dataset.zoom) || 1.0;
-    if (Math.abs(val - z) < 0.05) {
-      b.classList.add('active');
-    } else {
-      b.classList.remove('active');
-    }
-  });
+  if (zoomContainer) {
+    zoomContainer.querySelectorAll('.zoom-btn').forEach(b => {
+      const val = parseFloat(b.dataset.zoom) || 1.0;
+      if (Math.abs(val - z) < 0.05) {
+        b.classList.add('active');
+      } else {
+        b.classList.remove('active');
+      }
+    });
+  }
 
   applyHardwareZoom(z);
 }
@@ -611,9 +682,15 @@ function updateTriggerModeUI(mode) {
 
 function applySettingsToUI() {
   aspectRadios.forEach(r => r.checked = (r.value === settings.aspectRatioMode));
+  if (badgeRatio) {
+    badgeRatio.textContent = settings.aspectRatioMode === 'wide' ? '4:3' : '16:9';
+  }
 
   triggerRadios.forEach(r => r.checked = (r.value === settings.triggerMode));
   updateTriggerModeUI(settings.triggerMode);
+  if (badgeTimer) {
+    badgeTimer.textContent = settings.triggerMode === 'timer' ? `⏱️ ${parseFloat(settings.timerDuration).toFixed(0)}s` : '⏱️ Off';
+  }
 
   transitionRadios.forEach(r => r.checked = (r.value === settings.transitionStyle));
 
@@ -634,5 +711,11 @@ function saveSettingsFromUI() {
   settings.transitionStyle = selectedTrans;
   settings.timerDuration = parseFloat(timerSlider.value) || 10.0;
   settings.colorSensitivity = parseInt(colorSensSlider.value, 10) || 3;
+  if (badgeRatio) {
+    badgeRatio.textContent = settings.aspectRatioMode === 'wide' ? '4:3' : '16:9';
+  }
+  if (badgeTimer) {
+    badgeTimer.textContent = settings.triggerMode === 'timer' ? `⏱️ ${parseFloat(settings.timerDuration).toFixed(0)}s` : '⏱️ Off';
+  }
   saveSettings();
 }

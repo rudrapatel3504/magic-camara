@@ -1,15 +1,18 @@
 /* ==========================================================================
-   GOOGLE CAMERA (GCAM) INTERFACE THEME - FULL-BLEED MOBILE FIT
-   Pixel Camera Design System & Disguised Magic Engine
+   ONEPLUS 12R (OXYGENOS 14) CAMERA THEME & INTERFACE
+   Authentic OnePlus Camera Experience & Disguised Magic Engine
    ========================================================================== */
 
 :root {
-  --gcam-black: #000000;
-  --gcam-surface: #1e1f22;
-  --gcam-surface-variant: #2d3036;
-  --gcam-accent: #8ab4f8;
-  --gcam-yellow: #fdd663;
-  --gcam-pill-bg: rgba(255, 255, 255, 0.12);
+  --op-black: #000000;
+  --op-surface: #18181a;
+  --op-surface-card: #222226;
+  --op-surface-elevated: #2c2c30;
+  --op-yellow: #f5c518;
+  --op-red: #eb0028;
+  --op-pill: rgba(255, 255, 255, 0.14);
+  --op-pill-active: #ffffff;
+  --op-text-dim: #929296;
 }
 
 * {
@@ -31,13 +34,13 @@ html, body {
   height: 100%;
   height: 100dvh;
   overflow: hidden;
-  background-color: var(--gcam-black);
-  font-family: "Google Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--op-black);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: #fff;
   touch-action: none;
 }
 
-#gcam-app {
+#oneplus-app {
   position: fixed;
   inset: 0;
   width: 100vw;
@@ -48,7 +51,7 @@ html, body {
   flex-direction: column;
 }
 
-/* Background Raw Camera Feed (Hidden, fed into WebGL Canvas) */
+/* Background Raw Camera Feed */
 #camera-feed {
   position: absolute;
   top: 0;
@@ -73,54 +76,72 @@ html, body {
   object-fit: cover;
 }
 
-/* Focus Reticle */
+/* OnePlus Yellow Tap to Focus Reticle */
 .focus-ring {
   position: absolute;
-  width: 60px;
-  height: 60px;
-  border: 1.5px solid #ffffff;
-  border-radius: 50%;
+  width: 64px;
+  height: 64px;
   pointer-events: none;
-  z-index: 10;
-  transform: translate(-50%, -50%) scale(1.3);
+  z-index: 12;
+  transform: translate(-50%, -50%) scale(1.25);
   opacity: 0;
-  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), opacity 0.2s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .focus-ring.active {
   transform: translate(-50%, -50%) scale(1);
-  opacity: 0.9;
+  opacity: 1;
 }
 
 .focus-ring.hidden {
   display: none;
 }
 
-/* GCAM TOP BAR */
-.gcam-top-bar {
+.focus-circle {
+  width: 48px;
+  height: 48px;
+  border: 1.8px solid var(--op-yellow);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(245, 197, 24, 0.4);
+}
+
+.focus-sun {
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ==========================================================================
+   ONEPLUS 12R TOP BAR (OXYGENOS 14)
+   ========================================================================== */
+.oneplus-top-bar {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  padding: calc(max(8px, env(safe-area-inset-top)) + 4px) 16px 10px 16px;
+  padding: calc(max(10px, env(safe-area-inset-top)) + 4px) 16px 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   z-index: 20;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.3) 60%, rgba(0, 0, 0, 0) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.35) 60%, rgba(0, 0, 0, 0) 100%);
   pointer-events: none;
 }
 
-.gcam-top-bar > * {
+.oneplus-top-bar > * {
   pointer-events: auto;
 }
 
-.gcam-icon-btn {
-  width: 40px;
-  height: 40px;
+.oneplus-icon-btn {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
   border: none;
   color: #ffffff;
   display: flex;
@@ -130,32 +151,32 @@ html, body {
   transition: transform 0.15s ease, background 0.15s ease;
 }
 
-.gcam-icon-btn svg {
-  width: 20px;
-  height: 20px;
+.oneplus-icon-btn svg {
+  width: 19px;
+  height: 19px;
 }
 
-.gcam-icon-btn:active {
+.oneplus-icon-btn:active {
   transform: scale(0.92);
   background: rgba(255, 255, 255, 0.2);
 }
 
-.gcam-pill-btn {
-  padding: 5px 12px;
-  border-radius: 20px;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-  border: none;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.oneplus-badge-btn {
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.4px;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.chevron-down {
-  width: 16px;
-  height: 16px;
+.oneplus-badge-btn.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.22);
 }
 
 /* TAP TO START OVERLAY */
@@ -203,86 +224,107 @@ html, body {
   letter-spacing: 0.3px;
 }
 
-/* GCAM BOTTOM CONTROLS */
-.gcam-bottom-bar {
+/* ==========================================================================
+   ONEPLUS 12R BOTTOM CONTROLS
+   ========================================================================== */
+.oneplus-bottom-bar {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding-bottom: calc(max(10px, env(safe-area-inset-bottom)) + 6px);
+  padding-bottom: calc(max(12px, env(safe-area-inset-bottom)) + 8px);
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(6px, 1.3vh, 12px);
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.5) 65%, rgba(0, 0, 0, 0) 100%);
+  gap: clamp(8px, 1.4vh, 14px);
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.5) 70%, rgba(0, 0, 0, 0) 100%);
   pointer-events: none;
 }
 
-.gcam-bottom-bar > * {
+.oneplus-bottom-bar > * {
   pointer-events: auto;
 }
 
-/* Zoom Pills (.6 | 1x | 2x) */
-.gcam-zoom-row {
+/* Zoom Pills (.8 | 1x for Front Camera; .6 | 1x | 2x | 5x for Rear) */
+.oneplus-zoom-row {
   display: flex;
   justify-content: center;
 }
 
-.zoom-pill-container {
+.oneplus-zoom-container {
   display: flex;
   align-items: center;
-  background: rgba(30, 31, 34, 0.75);
-  backdrop-filter: blur(12px);
+  background: rgba(24, 24, 26, 0.85);
+  backdrop-filter: blur(16px);
   padding: 3px;
-  border-radius: 18px;
+  border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  gap: 2px;
+  gap: 3px;
 }
 
 .zoom-btn {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: #c4c6d0;
-  font-size: 11px;
+  color: #a0a0a5;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.18s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .zoom-btn.active {
   background: #ffffff;
   color: #000000;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
-/* Modes Carousel (Night Sight · Portrait · PHOTO · Video) */
-.gcam-modes-carousel {
+/* Mode Carousel (NIGHT · VIDEO · PHOTO · PORTRAIT · MORE) */
+.oneplus-modes-carousel {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(12px, 4vw, 20px);
-  font-size: 12px;
+  gap: clamp(14px, 4.5vw, 22px);
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  color: #939094;
+  letter-spacing: 0.6px;
+  color: var(--op-text-dim);
   overflow: hidden;
   width: 100%;
 }
 
-.mode-item.active {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.18);
-  padding: 4px 12px;
-  border-radius: 14px;
+.oneplus-modes-carousel .mode-item {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: color 0.15s ease;
+}
+
+.oneplus-modes-carousel .mode-item.active {
+  color: var(--op-yellow);
+  font-weight: 700;
+}
+
+.oneplus-active-dot {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--op-yellow);
+  margin-top: 3px;
 }
 
 /* Shutter Row */
-.gcam-shutter-row {
+.oneplus-shutter-row {
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -292,12 +334,12 @@ html, body {
 }
 
 /* Gallery Circle Preview */
-.gallery-preview-btn {
-  width: clamp(42px, 11vw, 48px);
-  height: clamp(42px, 11vw, 48px);
+.oneplus-gallery-btn {
+  width: clamp(44px, 12vw, 50px);
+  height: clamp(44px, 12vw, 50px);
   border-radius: 50%;
-  background: #2b2b2b;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: #1c1c1e;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
   padding: 0;
   cursor: pointer;
   overflow: hidden;
@@ -306,14 +348,14 @@ html, body {
   justify-content: center;
 }
 
-.gallery-thumb-circle {
+.oneplus-gallery-thumb {
   width: 100%;
   height: 100%;
   background: linear-gradient(135deg, #1e3a8a, #3b82f6);
 }
 
-/* Iconic Google Camera Shutter Button */
-.gcam-shutter-btn {
+/* Iconic OnePlus Camera Shutter Button */
+.oneplus-shutter-btn {
   background: transparent;
   border: none;
   cursor: pointer;
@@ -322,38 +364,37 @@ html, body {
   align-items: center;
   justify-content: center;
   outline: none;
-  transition: transform 0.1s ease;
 }
 
-.shutter-outer-ring {
-  width: clamp(62px, 16vw, 74px);
-  height: clamp(62px, 16vw, 74px);
+.oneplus-shutter-outer {
+  width: clamp(66px, 18vw, 76px);
+  height: clamp(66px, 18vw, 76px);
   border-radius: 50%;
   border: 3.5px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 3.5px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
-.shutter-inner-fill {
+.oneplus-shutter-inner {
   width: 100%;
   height: 100%;
   border-radius: 50%;
   background: #ffffff;
-  transition: transform 0.12s ease, background 0.12s ease;
+  transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), background 0.12s ease;
 }
 
-.gcam-shutter-btn:active .shutter-inner-fill {
+.oneplus-shutter-btn:active .oneplus-shutter-inner {
   transform: scale(0.88);
   background: #e2e2e2;
 }
 
-/* Flip Camera Button */
-.camera-flip-btn {
-  width: clamp(42px, 11vw, 48px);
-  height: clamp(42px, 11vw, 48px);
+/* OnePlus Circular Flip Camera Button */
+.oneplus-flip-btn {
+  width: clamp(44px, 12vw, 50px);
+  height: clamp(44px, 12vw, 50px);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.14);
   border: none;
@@ -365,40 +406,42 @@ html, body {
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.camera-flip-btn svg {
+.oneplus-flip-btn svg {
   width: 22px;
   height: 22px;
 }
 
-/* AUTHENTIC GCAM SETTINGS BOTTOM SHEET */
-.gcam-sheet-overlay {
+/* ==========================================================================
+   ONEPLUS OXYGENOS 14 CAMERA SETTINGS SHEET
+   ========================================================================== */
+.oneplus-sheet-overlay {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
   z-index: 50;
   display: flex;
   align-items: flex-end;
   transition: opacity 0.25s ease, visibility 0.25s ease;
 }
 
-.gcam-sheet-overlay.hidden {
+.oneplus-sheet-overlay.hidden {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
 
-.gcam-sheet-card {
+.oneplus-sheet-card {
   width: 100%;
-  background: var(--gcam-surface);
+  background: var(--op-surface);
   border-top-left-radius: 28px;
   border-top-right-radius: 28px;
   padding: 14px 20px calc(24px + env(safe-area-inset-bottom)) 20px;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.85);
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-height: 82vh;
+  max-height: 84vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -459,11 +502,11 @@ html, body {
 
 .sheet-subtitle {
   font-size: 12px;
-  color: #939094;
+  color: var(--op-text-dim);
 }
 
 .sheet-pill-badge {
-  background: var(--gcam-pill-bg);
+  background: var(--op-pill);
   padding: 4px 10px;
   border-radius: 8px;
   font-size: 12px;
@@ -472,7 +515,7 @@ html, body {
 
 .sheet-toggle-group {
   display: flex;
-  background: #141518;
+  background: #101012;
   padding: 3px;
   border-radius: 12px;
   gap: 4px;
@@ -491,11 +534,11 @@ html, body {
   padding: 6px 12px;
   border-radius: 9px;
   font-size: 12px;
-  color: #939094;
+  color: var(--op-text-dim);
 }
 
 .sheet-radio input:checked + span {
-  background: #3c4048;
+  background: #323238;
   color: #ffffff;
 }
 
@@ -518,10 +561,10 @@ html, body {
 
 .sheet-badge {
   font-size: 12px;
-  color: #8ab4f8;
+  color: var(--op-yellow);
 }
 
-.gcam-slider {
+.oneplus-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
@@ -531,43 +574,33 @@ html, body {
   outline: none;
 }
 
-.gcam-slider::-webkit-slider-thumb {
+.oneplus-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #8ab4f8;
+  background: #ffffff;
   cursor: pointer;
-  box-shadow: 0 0 6px rgba(138, 180, 248, 0.6);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
 }
-
-.sheet-section-divider {
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.sheet-section-title {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: #8ab4f8;
-}
-
-
 
 .sheet-actions {
   margin-top: 8px;
 }
 
-.gcam-primary-btn {
+.oneplus-primary-btn {
   width: 100%;
   padding: 12px;
   border-radius: 12px;
-  background: #8ab4f8;
-  color: #040c1a;
+  background: #ffffff;
+  color: #000000;
   border: none;
   font-weight: 600;
   font-size: 15px;
   cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.oneplus-primary-btn:active {
+  background: #e0e0e0;
 }
