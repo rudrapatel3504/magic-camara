@@ -2,12 +2,13 @@
  * GOOGLE CAMERA (GCAM) PWA - CLEAN CARD TRANSPOSITION
  * ============================================================================
  * Disguised 100% as the native Google Pixel Camera app.
+ * Supports REAR and FRONT (selfie) camera switching with natural mirroring!
  * Red Playing Cards seamlessly appear Bicycle Blue in real-time.
  * Tap Shutter Button (or timer) to make blue layer fade away / disappear.
  * Zero flash animations. Zero microphone/audio permissions.
  */
 
-const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v5';
+const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v6';
 
 const DEFAULT_SETTINGS = {
   triggerMode: 'tap',          // 'tap' (Tap shutter/screen) or 'timer' (Auto countdown)
@@ -24,6 +25,11 @@ const STATE = {
 let appState = STATE.ARMED;
 let settings = loadSettings();
 
+// Camera facing mode: 'environment' (back) or 'user' (front)
+let currentFacingMode = 'environment';
+let currentStream = null;
+let flipRotation = 0;
+
 // Blue amount for smooth fade transition (1.0 = full blue, 0.0 = real red)
 let currentBlueAmount = 1.0;
 let targetBlueAmount = 1.0;
@@ -37,6 +43,7 @@ const cameraStarter = document.getElementById('camera-tap-starter');
 
 // GCam Controls
 const shutterBtn = document.getElementById('shutter-btn');
+const btnFlip = document.getElementById('btn-flip');
 const btnSettings = document.getElementById('btn-settings');
 const btnDrawer = document.getElementById('btn-gcam-drawer');
 const btnCloseSheet = document.getElementById('btn-close-sheet');
@@ -63,6 +70,7 @@ let uBlueAmountLocation = null;
 let uSensitivityLocation = null;
 let uVideoAspectLocation = null;
 let uScreenAspectLocation = null;
+let uIsFrontCameraLocation = null;
 let isWebGLSupported = true;
 let isCameraRunning = false;
 
@@ -81,11 +89,11 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', handleResize);
 
-  // Auto-start camera immediately (no audio needed)
+  // Auto-start camera immediately
   startCameraStream();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=5.0').then(reg => reg.update()).catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=6.0').then(reg => reg.update()).catch(() => {});
   }
 });
 
@@ -114,7 +122,7 @@ function handleResize() {
 }
 
 // ============================================================================
-// 2. WEBGL CHROMATIC SHADER (SMOOTH FADE, AUTHENTIC BICYCLE BLUE)
+// 2. WEBGL CHROMATIC SHADER WITH FRONT/REAR CAMERA SUPPORT
 // ============================================================================
 function initRenderer() {
   try {
@@ -130,12 +138,14 @@ function initRenderer() {
     return;
   }
 
+  // Vertex Shader with natural selfie mirror support
   const vsSource = `
     attribute vec2 a_position;
     attribute vec2 a_texCoord;
     varying vec2 v_texCoord;
     uniform float u_videoAspect;
     uniform float u_screenAspect;
+    uniform bool u_isFrontCamera;
 
     void main() {
       gl_Position = vec4(a_position, 0.0, 1.0);
@@ -147,12 +157,17 @@ function initRenderer() {
         float scale = u_screenAspect / u_videoAspect;
         coord.x = (coord.x - 0.5) * scale + 0.5;
       }
+
+      // Natural horizontal mirror for front selfie camera
+      if (u_isFrontCamera) {
+        coord.x = 1.0 - coord.x;
+      }
+
       v_texCoord = coord;
     }
   `;
 
   // Fragment Shader: Converts red ink into authentic Bicycle Rider Back Blue
-  // Controlled by u_blueAmount (1.0 = blue, 0.0 = natural red) for smooth fade or direct cut
   const fsSource = `
     precision mediump float;
     varying vec2 v_texCoord;
@@ -205,7 +220,6 @@ function initRenderer() {
           float redness = clamp((color.r - max(color.g, color.b) - 0.10) / 0.20, 0.0, 1.0);
           vec3 finalColor = mix(color.rgb, navyBlue, redness);
 
-          // Blend with u_blueAmount for fade or direct cut
           color.rgb = mix(color.rgb, finalColor, u_blueAmount);
         }
       }
@@ -248,6 +262,7 @@ function initRenderer() {
   uSensitivityLocation = gl.getUniformLocation(shaderProgram, 'u_sensitivity');
   uVideoAspectLocation = gl.getUniformLocation(shaderProgram, 'u_videoAspect');
   uScreenAspectLocation = gl.getUniformLocation(shaderProgram, 'u_screenAspect');
+  uIsFrontCameraLocation = gl.getUniformLocation(shaderProgram, 'u_isFrontCamera');
 }
 
 function createShaderProgram(gl, vs, fs) {
@@ -262,18 +277,22 @@ function createShaderProgram(gl, vs, fs) {
 }
 
 // ============================================================================
-// 3. CAMERA ONLY (ZERO MICROPHONE PERMISSION)
+// 3. CAMERA STREAM & FRONT/REAR TOGGLE
 // ============================================================================
 async function startCameraStream() {
   if (isCameraRunning) return;
 
   try {
-    // Only video is requested; no microphone permission needed!
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
+    const constraints = {
+      video: {
+        facingMode: { ideal: currentFacingMode },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    };
 
-    videoEl.srcObject = stream;
+    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+    videoEl.srcObject = currentStream;
     await videoEl.play();
 
     cameraStarter.classList.add('hidden');
@@ -285,8 +304,25 @@ async function startCameraStream() {
 
     requestAnimationFrame(renderLoop);
   } catch (err) {
-    console.log('Awaiting user tap to start camera');
+    console.log('Camera error or awaiting user tap:', err);
   }
+}
+
+async function toggleCameraFlip() {
+  flipRotation += 180;
+  btnFlip.style.transform = `rotate(${flipRotation}deg)`;
+
+  // Switch between 'environment' (back) and 'user' (front)
+  currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+
+  // Stop current stream before switching
+  if (currentStream) {
+    currentStream.getTracks().forEach(track => track.stop());
+    currentStream = null;
+  }
+
+  isCameraRunning = false;
+  await startCameraStream();
 }
 
 // ============================================================================
@@ -309,16 +345,15 @@ function renderLoop() {
     }
   }
 
-  // Smooth Fade Animation: gracefully dissolve blue into red
+  // Smooth Fade Animation: dissolve blue into natural red
   if (settings.transitionStyle === 'fade') {
-    const fadeSpeed = 3.5; // Fades out smoothly in ~0.28 seconds
+    const fadeSpeed = 3.5;
     if (currentBlueAmount < targetBlueAmount) {
       currentBlueAmount = Math.min(targetBlueAmount, currentBlueAmount + dt * fadeSpeed);
     } else if (currentBlueAmount > targetBlueAmount) {
       currentBlueAmount = Math.max(targetBlueAmount, currentBlueAmount - dt * fadeSpeed);
     }
   } else {
-    // Direct cut
     currentBlueAmount = targetBlueAmount;
   }
 
@@ -329,6 +364,7 @@ function renderLoop() {
 
     gl.uniform1f(uBlueAmountLocation, currentBlueAmount);
     gl.uniform1f(uSensitivityLocation, settings.colorSensitivity);
+    gl.uniform1i(uIsFrontCameraLocation, currentFacingMode === 'user' ? 1 : 0);
 
     const videoAspect = (videoEl.videoWidth || 1280) / (videoEl.videoHeight || 720);
     const screenAspect = window.innerWidth / window.innerHeight;
@@ -352,13 +388,13 @@ function renderLoop() {
 }
 
 // ============================================================================
-// 5. REVEAL & SHUTTER ACTIONS (ZERO FLASH, CLEAN FADE/DISAPPEAR)
+// 5. REVEAL & SHUTTER ACTIONS
 // ============================================================================
 function triggerReveal() {
   if (appState === STATE.REVEALED) return;
 
   appState = STATE.REVEALED;
-  targetBlueAmount = 0.0; // Blue fades away or cuts to 0
+  targetBlueAmount = 0.0;
 
   if (settings.transitionStyle === 'direct') {
     currentBlueAmount = 0.0;
@@ -376,7 +412,6 @@ function rearmTrick() {
 }
 
 function handleShutterClick() {
-  // Toggle: If currently armed (blue), reveal red! If already revealed, re-arm to blue!
   if (appState === STATE.ARMED) {
     triggerReveal();
   } else {
@@ -392,10 +427,16 @@ function initGCamUI() {
     startCameraStream();
   });
 
-  // Big Shutter Button
+  // Shutter Button
   shutterBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     handleShutterClick();
+  });
+
+  // Camera Flip Button (Front / Rear Toggle)
+  btnFlip.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleCameraFlip();
   });
 
   // Tap on viewfinder for focus reticle

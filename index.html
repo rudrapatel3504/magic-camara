@@ -13,17 +13,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Camera">
-  <link rel="manifest" href="manifest.json?v=5.0">
+  <link rel="manifest" href="manifest.json?v=6.0">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
-  <link rel="stylesheet" href="style.css?v=5.0">
+  <link rel="stylesheet" href="style.css?v=6.0">
 
   <script>
     if ('caches' in window) {
       caches.keys().then(function(names) {
         for (let name of names) {
-          if (name !== 'magic-camera-v5') caches.delete(name);
+          if (name !== 'magic-camera-v6') caches.delete(name);
         }
       });
     }
@@ -214,6 +214,6 @@
 
   </div>
 
-  <script src="script.js?v=5.0"></script>
+  <script src="script.js?v=6.0"></script>
 </body>
 </html>
