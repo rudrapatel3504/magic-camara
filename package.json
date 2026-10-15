@@ -1,0 +1,11 @@
+{
+  "name": "camera-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Camera app with live WebAR transposition",
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  }
+}
