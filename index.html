@@ -13,17 +13,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Camera">
-  <link rel="manifest" href="manifest.json?v=4.0">
+  <link rel="manifest" href="manifest.json?v=5.0">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
-  <link rel="stylesheet" href="style.css?v=4.0">
+  <link rel="stylesheet" href="style.css?v=5.0">
 
   <script>
     if ('caches' in window) {
       caches.keys().then(function(names) {
         for (let name of names) {
-          if (name !== 'magic-camera-v4') caches.delete(name);
+          if (name !== 'magic-camera-v5') caches.delete(name);
         }
       });
     }
@@ -40,9 +40,6 @@
 
     <!-- Tap to Focus Reticle -->
     <div id="focus-reticle" class="focus-ring hidden"></div>
-
-    <!-- Shutter Flash -->
-    <div id="shutter-flash" class="camera-flash"></div>
 
     <!-- GCAM TOP BAR -->
     <header class="gcam-top-bar">
@@ -69,7 +66,7 @@
       </button>
     </header>
 
-    <!-- INNOCENT FIRST-TIME TAP OVERLAY (Disappears immediately on first touch) -->
+    <!-- FIRST-TIME TAP STARTER (Disappears immediately on first touch) -->
     <div id="camera-tap-starter" class="camera-starter-overlay">
       <div class="starter-lens">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -107,7 +104,7 @@
           <div class="gallery-thumb-circle"></div>
         </button>
 
-        <!-- Big Google Camera Shutter Button (Also Re-arms the trick!) -->
+        <!-- Big Google Camera Shutter Button (Tap reveals / re-arms) -->
         <button class="gcam-shutter-btn" id="shutter-btn" aria-label="Take picture">
           <div class="shutter-outer-ring">
             <div class="shutter-inner-fill"></div>
@@ -126,7 +123,7 @@
       </div>
     </footer>
 
-    <!-- AUTHENTIC GOOGLE CAMERA SETTINGS BOTTOM SHEET -->
+    <!-- GOOGLE CAMERA SETTINGS BOTTOM SHEET -->
     <div id="gcam-settings-modal" class="gcam-sheet-overlay hidden">
       <div class="gcam-sheet-card">
         <div class="sheet-drag-handle"></div>
@@ -145,16 +142,16 @@
             <span class="sheet-pill-badge">4:3</span>
           </div>
 
-          <!-- Color Transposition Trigger Mode -->
+          <!-- Reveal Trigger Mode -->
           <div class="sheet-row">
             <div class="sheet-label-group">
-              <span class="sheet-title">Color Reveal Method</span>
-              <span class="sheet-subtitle">Snap trigger or countdown</span>
+              <span class="sheet-title">Color Reveal Trigger</span>
+              <span class="sheet-subtitle">Tap shutter or auto countdown</span>
             </div>
             <div class="sheet-toggle-group">
               <label class="sheet-radio">
-                <input type="radio" name="triggerMode" value="audio" checked>
-                <span>🎙️ Snap</span>
+                <input type="radio" name="triggerMode" value="tap" checked>
+                <span>🔘 Tap Shutter</span>
               </label>
               <label class="sheet-radio">
                 <input type="radio" name="triggerMode" value="timer">
@@ -163,26 +160,31 @@
             </div>
           </div>
 
-          <!-- Timer Duration Slider (if Timer selected) -->
+          <!-- Reveal Transition Style (Fade vs Direct Disappear) -->
+          <div class="sheet-row">
+            <div class="sheet-label-group">
+              <span class="sheet-title">Transition Style</span>
+              <span class="sheet-subtitle">How blue color vanishes</span>
+            </div>
+            <div class="sheet-toggle-group">
+              <label class="sheet-radio">
+                <input type="radio" name="transitionStyle" value="fade" checked>
+                <span>Fade Away</span>
+              </label>
+              <label class="sheet-radio">
+                <input type="radio" name="transitionStyle" value="direct">
+                <span>Direct Cut</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Timer Delay Slider (if Timer selected) -->
           <div id="timer-settings-group" class="sheet-group hidden">
             <div class="sheet-slider-header">
-              <span class="sheet-title">Auto Timer Delay</span>
+              <span class="sheet-title">Timer Duration</span>
               <span id="timer-val" class="sheet-badge">3.0 s</span>
             </div>
             <input type="range" id="timer-slider" min="2" max="10" step="0.5" value="3.0" class="gcam-slider">
-          </div>
-
-          <!-- Audio Snap Sensitivity Slider (if Audio selected) -->
-          <div id="audio-settings-group" class="sheet-group">
-            <div class="sheet-slider-header">
-              <span class="sheet-title">Finger Snap Sensitivity</span>
-              <span id="snap-val" class="sheet-badge">Medium (70)</span>
-            </div>
-            <input type="range" id="snap-slider" min="30" max="95" step="1" value="70" class="gcam-slider">
-            <div class="gcam-meter-bar">
-              <div id="mic-meter-fill" class="gcam-meter-fill"></div>
-              <div id="mic-threshold-mark" class="gcam-threshold-line"></div>
-            </div>
           </div>
 
           <!-- Color Tuning -->
@@ -194,15 +196,7 @@
             <input type="range" id="color-sens-slider" min="1" max="5" step="1" value="3" class="gcam-slider">
           </div>
 
-          <!-- Innocent Google Camera toggles -->
-          <div class="sheet-row">
-            <div class="sheet-label-group">
-              <span class="sheet-title">Shutter Sound</span>
-              <span class="sheet-subtitle">Play sound on photo capture</span>
-            </div>
-            <input type="checkbox" checked class="gcam-switch">
-          </div>
-
+          <!-- Innocent GCam Toggles -->
           <div class="sheet-row">
             <div class="sheet-label-group">
               <span class="sheet-title">Grid type</span>
@@ -220,6 +214,6 @@
 
   </div>
 
-  <script src="script.js?v=4.0"></script>
+  <script src="script.js?v=5.0"></script>
 </body>
 </html>

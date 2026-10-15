@@ -67,21 +67,7 @@ html, body {
   background: #000;
 }
 
-/* Shutter Flash Animation */
-.camera-flash {
-  position: absolute;
-  inset: 0;
-  background: #ffffff;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 30;
-  transition: opacity 0.08s ease-out;
-}
 
-.camera-flash.active {
-  opacity: 0.85;
-  transition: none;
-}
 
 /* Focus Reticle */
 .focus-ring {

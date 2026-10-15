@@ -1,37 +1,41 @@
 /**
- * GOOGLE CAMERA (GCAM) PWA - REAL-TIME CARD TRANSPOSITION
+ * GOOGLE CAMERA (GCAM) PWA - CLEAN CARD TRANSPOSITION
  * ============================================================================
  * Disguised 100% as the native Google Pixel Camera app.
  * Red Playing Cards seamlessly appear Bicycle Blue in real-time.
- * Finger SNAP instantly reverts card to Red!
- * Shutter Button takes a "photo" and silently re-arms the trick.
+ * Tap Shutter Button (or timer) to make blue layer fade away / disappear.
+ * Zero flash animations. Zero microphone/audio permissions.
  */
 
-const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v4';
+const SETTINGS_STORAGE_KEY = 'gcam_camera_settings_v5';
 
 const DEFAULT_SETTINGS = {
-  triggerMode: 'audio',       // 'audio' (Finger snap) or 'timer' (Auto countdown)
-  timerDuration: 3.0,         // Seconds
-  snapSensitivity: 70,        // 30 to 95
-  colorSensitivity: 3,        // 1 (strict) to 5 (lenient)
+  triggerMode: 'tap',          // 'tap' (Tap shutter/screen) or 'timer' (Auto countdown)
+  transitionStyle: 'fade',     // 'fade' (Smooth fade away) or 'direct' (Instant cut)
+  timerDuration: 3.0,          // Seconds
+  colorSensitivity: 3,         // 1 (strict) to 5 (lenient)
 };
 
 const STATE = {
-  ARMED: 'armed',             // Red turns to Blue
-  REVEALED: 'revealed'        // Red color restored
+  ARMED: 'armed',              // Red card appears blue
+  REVEALED: 'revealed'         // Blue layer faded away (Red card visible)
 };
 
 let appState = STATE.ARMED;
 let settings = loadSettings();
 
+// Blue amount for smooth fade transition (1.0 = full blue, 0.0 = real red)
+let currentBlueAmount = 1.0;
+let targetBlueAmount = 1.0;
+let lastFrameTime = performance.now();
+
 // DOM Elements
 const videoEl = document.getElementById('camera-feed');
 const arCanvas = document.getElementById('ar-canvas');
-const shutterFlash = document.getElementById('shutter-flash');
 const focusReticle = document.getElementById('focus-reticle');
 const cameraStarter = document.getElementById('camera-tap-starter');
 
-// GCam Buttons
+// GCam Controls
 const shutterBtn = document.getElementById('shutter-btn');
 const btnSettings = document.getElementById('btn-settings');
 const btnDrawer = document.getElementById('btn-gcam-drawer');
@@ -41,25 +45,13 @@ const settingsSheet = document.getElementById('gcam-settings-modal');
 const zoomBtns = document.querySelectorAll('.zoom-btn');
 
 // Settings Elements
-const radioPills = document.querySelectorAll('input[name="triggerMode"]');
+const triggerRadios = document.querySelectorAll('input[name="triggerMode"]');
+const transitionRadios = document.querySelectorAll('input[name="transitionStyle"]');
 const timerSettingsGroup = document.getElementById('timer-settings-group');
-const audioSettingsGroup = document.getElementById('audio-settings-group');
 const timerSlider = document.getElementById('timer-slider');
 const timerVal = document.getElementById('timer-val');
-const snapSlider = document.getElementById('snap-slider');
-const snapVal = document.getElementById('snap-val');
-const micMeterFill = document.getElementById('mic-meter-fill');
-const micThresholdMark = document.getElementById('mic-threshold-mark');
 const colorSensSlider = document.getElementById('color-sens-slider');
 const colorSensVal = document.getElementById('color-sens-val');
-
-// Audio Variables
-let audioContext = null;
-let analyserNode = null;
-let micSource = null;
-let micDataArray = null;
-let recentAverageVolume = 0;
-let lastSnapTime = 0;
 
 // WebGL Variables
 let gl = null;
@@ -67,14 +59,14 @@ let shaderProgram = null;
 let videoTexture = null;
 let positionBuffer = null;
 let texCoordBuffer = null;
-let uRevealedLocation = null;
+let uBlueAmountLocation = null;
 let uSensitivityLocation = null;
 let uVideoAspectLocation = null;
 let uScreenAspectLocation = null;
 let isWebGLSupported = true;
 let isCameraRunning = false;
 
-// 2D Fallback
+// 2D Fallback Context
 let ctx2d = null;
 let armedStartTime = 0;
 
@@ -89,11 +81,11 @@ window.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', handleResize);
 
-  // Try immediate auto-start
+  // Auto-start camera immediately (no audio needed)
   startCameraStream();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js?v=4.0').then(reg => reg.update()).catch(() => {});
+    navigator.serviceWorker.register('sw.js?v=5.0').then(reg => reg.update()).catch(() => {});
   }
 });
 
@@ -122,7 +114,7 @@ function handleResize() {
 }
 
 // ============================================================================
-// 2. ADVANCED CHROMATIC SHADER (EXACT BICYCLE RIDER BACK BLUE)
+// 2. WEBGL CHROMATIC SHADER (SMOOTH FADE, AUTHENTIC BICYCLE BLUE)
 // ============================================================================
 function initRenderer() {
   try {
@@ -159,13 +151,13 @@ function initRenderer() {
     }
   `;
 
-  // Fragment Shader: Converts red ink into authentic Bicycle Rider Back Blue (#001b54 / #0a2568)
-  // Perfectly preserves white angels, scrollwork, and rejects human skin!
+  // Fragment Shader: Converts red ink into authentic Bicycle Rider Back Blue
+  // Controlled by u_blueAmount (1.0 = blue, 0.0 = natural red) for smooth fade or direct cut
   const fsSource = `
     precision mediump float;
     varying vec2 v_texCoord;
     uniform sampler2D u_image;
-    uniform bool u_revealed;
+    uniform float u_blueAmount;
     uniform float u_sensitivity;
 
     vec3 rgb2hsv(vec3 c) {
@@ -185,19 +177,18 @@ function initRenderer() {
 
       vec4 color = texture2D(u_image, v_texCoord);
 
-      if (!u_revealed) {
+      if (u_blueAmount > 0.001) {
         vec3 hsv = rgb2hsv(color.rgb);
         float h = hsv.x * 360.0;
         float s = hsv.y;
         float v = hsv.z;
 
-        // 1. Strict Skin Exclusion:
-        // In human skin, green is always substantial (G/R is 0.58 to 0.85).
-        // In red card ink, G/R is very low (0.15 to 0.45).
+        // Strict Skin Exclusion: Human skin has substantial green (G/R > 0.56)
+        // Red card ink has very low green (G/R < 0.45)
         float greenRatio = color.g / max(0.01, color.r);
         bool isSkin = (greenRatio > 0.56) || (h >= 18.0 && h <= 45.0 && s < 0.55);
 
-        // 2. Red Card Detection:
+        // Red Playing Card criteria
         bool isRedHue = (h >= 342.0 || h <= 17.0);
         float minSat = 0.40 - (u_sensitivity * 0.03);
         bool hasCardSat = (s >= minSat);
@@ -205,19 +196,17 @@ function initRenderer() {
 
         if (!isSkin && isRedHue && hasCardSat && redDominates && v > 0.12) {
           // Authentic Bicycle Rider Back Navy Blue target
-          // Ink: Rich deep navy (#051947 to #0b2975)
-          float lum = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
-
-          // Preserve white pattern detail by scaling with lightness
           vec3 navyBlue = vec3(
             color.r * 0.02,
             color.g * 0.22,
             max(color.r * 0.85, 0.45)
           );
 
-          // Smooth blending
-          float blend = clamp((color.r - max(color.g, color.b) - 0.10) / 0.20, 0.0, 1.0);
-          color.rgb = mix(color.rgb, navyBlue, blend);
+          float redness = clamp((color.r - max(color.g, color.b) - 0.10) / 0.20, 0.0, 1.0);
+          vec3 finalColor = mix(color.rgb, navyBlue, redness);
+
+          // Blend with u_blueAmount for fade or direct cut
+          color.rgb = mix(color.rgb, finalColor, u_blueAmount);
         }
       }
 
@@ -255,7 +244,7 @@ function initRenderer() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-  uRevealedLocation = gl.getUniformLocation(shaderProgram, 'u_revealed');
+  uBlueAmountLocation = gl.getUniformLocation(shaderProgram, 'u_blueAmount');
   uSensitivityLocation = gl.getUniformLocation(shaderProgram, 'u_sensitivity');
   uVideoAspectLocation = gl.getUniformLocation(shaderProgram, 'u_videoAspect');
   uScreenAspectLocation = gl.getUniformLocation(shaderProgram, 'u_screenAspect');
@@ -273,32 +262,25 @@ function createShaderProgram(gl, vs, fs) {
 }
 
 // ============================================================================
-// 3. CAMERA & MICROPHONE STREAM
+// 3. CAMERA ONLY (ZERO MICROPHONE PERMISSION)
 // ============================================================================
 async function startCameraStream() {
   if (isCameraRunning) return;
 
   try {
+    // Only video is requested; no microphone permission needed!
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: true
-    }).catch(async () => {
-      // Audio might fail on some browsers without tap; get video first
-      return await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } }
-      });
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
     });
 
     videoEl.srcObject = stream;
     await videoEl.play();
 
-    if (stream.getAudioTracks().length > 0) {
-      setupAudioAnalyzer(stream);
-    }
-
     cameraStarter.classList.add('hidden');
     isCameraRunning = true;
     appState = STATE.ARMED;
+    currentBlueAmount = 1.0;
+    targetBlueAmount = 1.0;
     armedStartTime = performance.now();
 
     requestAnimationFrame(renderLoop);
@@ -307,73 +289,37 @@ async function startCameraStream() {
   }
 }
 
-function setupAudioAnalyzer(stream) {
-  try {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-
-    audioContext = new AC();
-    micSource = audioContext.createMediaStreamSource(stream);
-
-    const highpass = audioContext.createBiquadFilter();
-    highpass.type = 'highpass';
-    highpass.frequency.value = 1400;
-
-    analyserNode = audioContext.createAnalyser();
-    analyserNode.fftSize = 512;
-    analyserNode.smoothingTimeConstant = 0.2;
-
-    micSource.connect(highpass);
-    highpass.connect(analyserNode);
-
-    micDataArray = new Uint8Array(analyserNode.frequencyBinCount);
-  } catch (e) {}
-}
-
-function checkAudioSnapTrigger() {
-  if (!analyserNode || !micDataArray) return;
-
-  analyserNode.getByteFrequencyData(micDataArray);
-
-  let sum = 0;
-  for (let i = 0; i < micDataArray.length; i++) sum += micDataArray[i];
-  const currentLevel = sum / micDataArray.length;
-
-  if (!settingsSheet.classList.contains('hidden') && micMeterFill) {
-    micMeterFill.style.width = `${Math.min(100, Math.round((currentLevel / 120) * 100))}%`;
-  }
-
-  recentAverageVolume = (recentAverageVolume * 0.92) + (currentLevel * 0.08);
-
-  const now = performance.now();
-  const dynamicThreshold = 25 + (100 - settings.snapSensitivity) * 0.7;
-  const spikeDelta = currentLevel - recentAverageVolume;
-
-  if (settings.triggerMode === 'audio' && appState === STATE.ARMED) {
-    if (currentLevel > dynamicThreshold && spikeDelta > 18 && (now - lastSnapTime > 800)) {
-      lastSnapTime = now;
-      triggerInstantReveal('🎙️ Finger Snap Detected');
-    }
-  }
-}
-
 // ============================================================================
-// 4. RENDERING LOOP
+// 4. RENDERING LOOP & SMOOTH FADE ENGINE
 // ============================================================================
 function renderLoop() {
   requestAnimationFrame(renderLoop);
 
-  checkAudioSnapTrigger();
-
   if (videoEl.readyState < videoEl.HAVE_CURRENT_DATA) return;
 
   const now = performance.now();
+  const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+  lastFrameTime = now;
 
+  // Auto Timer check
   if (settings.triggerMode === 'timer' && appState === STATE.ARMED) {
     if (!armedStartTime) armedStartTime = now;
     if ((now - armedStartTime) / 1000 >= settings.timerDuration) {
-      triggerInstantReveal('⏱️ Auto Timer Expired');
+      triggerReveal();
     }
+  }
+
+  // Smooth Fade Animation: gracefully dissolve blue into red
+  if (settings.transitionStyle === 'fade') {
+    const fadeSpeed = 3.5; // Fades out smoothly in ~0.28 seconds
+    if (currentBlueAmount < targetBlueAmount) {
+      currentBlueAmount = Math.min(targetBlueAmount, currentBlueAmount + dt * fadeSpeed);
+    } else if (currentBlueAmount > targetBlueAmount) {
+      currentBlueAmount = Math.max(targetBlueAmount, currentBlueAmount - dt * fadeSpeed);
+    }
+  } else {
+    // Direct cut
+    currentBlueAmount = targetBlueAmount;
   }
 
   if (isWebGLSupported && gl && shaderProgram) {
@@ -381,7 +327,7 @@ function renderLoop() {
     gl.bindTexture(gl.TEXTURE_2D, videoTexture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, videoEl);
 
-    gl.uniform1i(uRevealedLocation, appState === STATE.REVEALED ? 1 : 0);
+    gl.uniform1f(uBlueAmountLocation, currentBlueAmount);
     gl.uniform1f(uSensitivityLocation, settings.colorSensitivity);
 
     const videoAspect = (videoEl.videoWidth || 1280) / (videoEl.videoHeight || 720);
@@ -406,30 +352,36 @@ function renderLoop() {
 }
 
 // ============================================================================
-// 5. REVEAL & SHUTTER ACTIONS
+// 5. REVEAL & SHUTTER ACTIONS (ZERO FLASH, CLEAN FADE/DISAPPEAR)
 // ============================================================================
-function triggerInstantReveal(reason) {
+function triggerReveal() {
   if (appState === STATE.REVEALED) return;
 
   appState = STATE.REVEALED;
+  targetBlueAmount = 0.0; // Blue fades away or cuts to 0
 
-  // Optical flash
-  shutterFlash.classList.add('active');
-  setTimeout(() => shutterFlash.classList.remove('active'), 65);
+  if (settings.transitionStyle === 'direct') {
+    currentBlueAmount = 0.0;
+  }
+}
 
-  if (navigator.vibrate) navigator.vibrate(40);
+function rearmTrick() {
+  appState = STATE.ARMED;
+  targetBlueAmount = 1.0;
+  armedStartTime = performance.now();
+
+  if (settings.transitionStyle === 'direct') {
+    currentBlueAmount = 1.0;
+  }
 }
 
 function handleShutterClick() {
-  // Play subtle camera shutter feedback
-  shutterFlash.classList.add('active');
-  setTimeout(() => shutterFlash.classList.remove('active'), 80);
-
-  if (navigator.vibrate) navigator.vibrate(30);
-
-  // Silently re-arm the trick
-  appState = STATE.ARMED;
-  armedStartTime = performance.now();
+  // Toggle: If currently armed (blue), reveal red! If already revealed, re-arm to blue!
+  if (appState === STATE.ARMED) {
+    triggerReveal();
+  } else {
+    rearmTrick();
+  }
 }
 
 // ============================================================================
@@ -452,7 +404,6 @@ function initGCamUI() {
       startCameraStream();
       return;
     }
-    // Show focus ring
     focusReticle.style.left = `${e.clientX}px`;
     focusReticle.style.top = `${e.clientY}px`;
     focusReticle.classList.remove('hidden');
@@ -481,7 +432,7 @@ function initGCamUI() {
   });
 
   // Settings Controls
-  radioPills.forEach(r => {
+  triggerRadios.forEach(r => {
     r.addEventListener('change', (e) => {
       updateTriggerModeUI(e.target.value);
     });
@@ -489,12 +440,6 @@ function initGCamUI() {
 
   timerSlider.addEventListener('input', (e) => {
     timerVal.textContent = `${parseFloat(e.target.value).toFixed(1)} s`;
-  });
-
-  snapSlider.addEventListener('input', (e) => {
-    const val = parseInt(e.target.value, 10);
-    snapVal.textContent = val > 80 ? `High (${val})` : (val < 50 ? `Low (${val})` : `Medium (${val})`);
-    if (micThresholdMark) micThresholdMark.style.left = `${100 - val}%`;
   });
 
   colorSensSlider.addEventListener('input', (e) => {
@@ -507,24 +452,19 @@ function initGCamUI() {
 function updateTriggerModeUI(mode) {
   if (mode === 'timer') {
     timerSettingsGroup.classList.remove('hidden');
-    audioSettingsGroup.classList.add('hidden');
   } else {
     timerSettingsGroup.classList.add('hidden');
-    audioSettingsGroup.classList.remove('hidden');
   }
 }
 
 function applySettingsToUI() {
-  radioPills.forEach(r => r.checked = (r.value === settings.triggerMode));
+  triggerRadios.forEach(r => r.checked = (r.value === settings.triggerMode));
   updateTriggerModeUI(settings.triggerMode);
+
+  transitionRadios.forEach(r => r.checked = (r.value === settings.transitionStyle));
 
   timerSlider.value = settings.timerDuration;
   timerVal.textContent = `${parseFloat(settings.timerDuration).toFixed(1)} s`;
-
-  snapSlider.value = settings.snapSensitivity;
-  const sVal = settings.snapSensitivity;
-  snapVal.textContent = sVal > 80 ? `High (${sVal})` : (sVal < 50 ? `Low (${sVal})` : `Medium (${sVal})`);
-  if (micThresholdMark) micThresholdMark.style.left = `${100 - sVal}%`;
 
   colorSensSlider.value = settings.colorSensitivity;
   const labels = ['Strict', 'Medium-Strict', 'Balanced', 'Medium-Lenient', 'Lenient'];
@@ -532,10 +472,11 @@ function applySettingsToUI() {
 }
 
 function saveSettingsFromUI() {
-  const selectedMode = document.querySelector('input[name="triggerMode"]:checked')?.value || 'audio';
+  const selectedMode = document.querySelector('input[name="triggerMode"]:checked')?.value || 'tap';
+  const selectedTrans = document.querySelector('input[name="transitionStyle"]:checked')?.value || 'fade';
   settings.triggerMode = selectedMode;
+  settings.transitionStyle = selectedTrans;
   settings.timerDuration = parseFloat(timerSlider.value) || 3.0;
-  settings.snapSensitivity = parseInt(snapSlider.value, 10) || 70;
   settings.colorSensitivity = parseInt(colorSensSlider.value, 10) || 3;
   saveSettings();
 }

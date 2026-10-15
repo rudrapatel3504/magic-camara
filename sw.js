@@ -1,5 +1,5 @@
-// Service Worker - Google Camera PWA v4
-const CACHE_NAME = 'magic-camera-v4';
+// Service Worker - Google Camera v5
+const CACHE_NAME = 'magic-camera-v5';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -7,9 +7,8 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(keys.map((k) => caches.delete(k)));
-    }).then(() => self.clients.claim())
+    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
